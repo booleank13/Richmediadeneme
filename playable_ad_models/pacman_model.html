@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Migros Yemek Playable</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700;900&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Poppins', sans-serif;
+            overflow: hidden;
+        }
+
+        #ad-container {
+            width: 320px;
+            height: 480px;
+            background-color: #001220; /* Dark Blue */
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        /* Header */
+        header {
+            height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #001220;
+            z-index: 10;
+            padding-top: 10px;
+        }
+
+        .logo-text {
+            font-size: 32px;
+            line-height: 1;
+            text-align: center;
+            font-weight: 900;
+        }
+        .logo-migros { color: white; }
+        .logo-yemek { color: #FF6600; }
+
+        /* Game Area */
+        #game-wrapper {
+            flex: 1;
+            position: relative;
+            width: 100%;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* End Screen UI */
+        #end-card {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 150px; /* Covers bottom part */
+            background: linear-gradient(to top, #001220 90%, transparent);
+            display: none; /* Flex when active */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            padding-bottom: 20px;
+        }
+
+        #end-card.visible {
+            display: flex;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        .congrats-text {
+            color: white;
+            font-size: 32px;
+            font-weight: 900;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .cta-button {
+            background-color: #FF6600;
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            font-size: 24px;
+            font-weight: 700;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #cc5200;
+            transition: transform 0.1s;
+            text-transform: uppercase;
+        }
+
+        .cta-button:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        /* Tutorial Hand */
+        #tutorial {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            color: white;
+            font-size: 20px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            animation: pulse 1.5s infinite;
+            z-index: 15;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 0.5; transform: translate(-50%, -50%) scale(1.1); }
+            100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="ad-container">
+        <header>
+            <div class="logo-text logo-migros">MIGROS</div>
+            <div class="logo-text logo-yemek">YEMEK</div>
+        </header>
+
+        <div id="game-wrapper">
+            <canvas id="gameCanvas"></canvas>
+            <div id="tutorial">TAP TO MOVE</div>
+        </div>
+
+        <div id="end-card">
+            <div class="congrats-text">TEBRIKLER!</div>
+            <button class="cta-button" onclick="installApp()">SİPARİŞ VER</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const endCard = document.getElementById('end-card');
+        const tutorial = document.getElementById('tutorial');
+
+        let width, height;
+        let gameRunning = true;
+
+        // Colors
+        const COLORS = {
+            bg: '#001220',
+            wall: '#003366', // Darker blue for walls
+            wallStroke: '#0055AA', // Lighter blue stroke
+            pacman: '#FFD700',
+            dot: '#FFD700',
+            ghost: '#DD2222'
+        };
+
+        // Game State
+        const player = { x: 0, y: 0, radius: 20, mouth: 0.2, angle: 0, speed: 150 };
+        const burger = { x: 0, y: 0, radius: 25 };
+        const ghost = { x: 0, y: 0, radius: 20, dir: 1, speed: 80 };
+
+        // Simple Maze (Grid based logic visually, but free movement for simplicity)
+        const walls = [];
+
+        function resize() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            width = rect.width;
+            height = rect.height;
+            canvas.width = width;
+            canvas.height = height;
+            resetGame();
+        }
+
+        function resetGame() {
+            // Setup Positions
+            player.x = width * 0.3;
+            player.y = height * 0.5;
+
+            burger.x = width * 0.7;
+            burger.y = height * 0.5;
+
+            ghost.x = width * 0.7;
+            ghost.y = height * 0.3;
+
+            // Define some visual walls
+            walls.length = 0;
+            const w = 20;
+            // Top Bar
+            walls.push({x: 20, y: 20, w: width-40, h: w});
+            // Bottom Bar
+            walls.push({x: 20, y: height-40, w: width-40, h: w});
+            // Left
+            walls.push({x: 20, y: 20, w: w, h: height-60});
+            // Right
+            walls.push({x: width-40, y: 20, w: w, h: height-60});
+
+            // Middle obstacles
+            walls.push({x: width*0.2, y: height*0.3, w: width*0.2, h: w});
+            walls.push({x: width*0.6, y: height*0.7, w: width*0.2, h: w});
+        }
+
+        // Input
+        let targetX = null;
+        let targetY = null;
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (!gameRunning) return;
+            const rect = canvas.getBoundingClientRect();
+            targetX = e.clientX - rect.left;
+            targetY = e.clientY - rect.top;
+            tutorial.style.display = 'none';
+        });
+
+        function drawBurger(x, y, r) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Bun Bottom
+            ctx.fillStyle = '#E6A15C';
+            ctx.beginPath();
+            ctx.arc(0, r*0.2, r, 0, Math.PI, false);
+            ctx.fill();
+
+            // Lettuce
+            ctx.fillStyle = '#44AA44';
+            ctx.fillRect(-r, r*0.1, r*2, r*0.2);
+
+            // Meat
+            ctx.fillStyle = '#663300';
+            ctx.fillRect(-r*0.9, -r*0.1, r*1.8, r*0.3);
+
+            // Tomato
+            ctx.fillStyle = '#DD2222';
+            ctx.fillRect(-r*0.9, -r*0.3, r*1.8, r*0.2);
+
+            // Bun Top
+            ctx.fillStyle = '#E6A15C';
+            ctx.beginPath();
+            ctx.arc(0, -r*0.3, r, Math.PI, 0, false);
+            ctx.fill();
+
+            // Sesame Seeds
+            ctx.fillStyle = '#FFFDD0';
+            ctx.beginPath();
+            ctx.arc(-r*0.4, -r*0.8, 2, 0, Math.PI*2);
+            ctx.arc(r*0.4, -r*0.7, 2, 0, Math.PI*2);
+            ctx.arc(0, -r*1.0, 2, 0, Math.PI*2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawGhost(x, y, r) {
+            ctx.fillStyle = COLORS.ghost;
+            ctx.beginPath();
+            ctx.arc(x, y - r*0.2, r, Math.PI, 0);
+            ctx.lineTo(x + r, y + r);
+            ctx.lineTo(x + r*0.33, y + r*0.7);
+            ctx.lineTo(x - r*0.33, y + r);
+            ctx.lineTo(x - r, y + r);
+            ctx.fill();
+
+            // Eyes
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(x - r*0.35, y - r*0.2, r*0.35, 0, Math.PI*2);
+            ctx.arc(x + r*0.35, y - r*0.2, r*0.35, 0, Math.PI*2);
+            ctx.fill();
+
+            ctx.fillStyle = 'blue';
+            ctx.beginPath();
+            ctx.arc(x - r*0.35 + (Math.sin(Date.now()/200)*2), y - r*0.2, r*0.15, 0, Math.PI*2);
+            ctx.arc(x + r*0.35 + (Math.sin(Date.now()/200)*2), y - r*0.2, r*0.15, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+        function drawPacman(x, y, r, angle, mouth) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.fillStyle = COLORS.pacman;
+            ctx.beginPath();
+            ctx.arc(0, 0, r, mouth, Math.PI * 2 - mouth);
+            ctx.lineTo(0, 0);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawWalls() {
+            ctx.strokeStyle = COLORS.wallStroke;
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+
+            walls.forEach(w => {
+                // Draw simplified "pipes"
+                ctx.beginPath();
+                // Outer line
+                ctx.moveTo(w.x, w.y);
+                ctx.lineTo(w.x + w.w, w.y);
+                ctx.lineTo(w.x + w.w, w.y + w.h);
+                ctx.lineTo(w.x, w.y + w.h);
+                ctx.closePath();
+                ctx.stroke();
+            });
+
+            // Draw Dots
+            ctx.fillStyle = COLORS.dot;
+            for(let i=0; i<width; i+=40) {
+                for(let j=0; j<height; j+=40) {
+                     if (Math.random() > 0.8) { // Random dots for aesthetic
+                         ctx.beginPath();
+                         ctx.arc(i, j, 3, 0, Math.PI*2);
+                         ctx.fill();
+                     }
+                }
+            }
+        }
+
+        let lastTime = 0;
+        function loop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            update(dt);
+            draw();
+
+            requestAnimationFrame(loop);
+        }
+
+        function update(dt) {
+            if (!gameRunning) return;
+
+            // Move Player
+            if (targetX !== null) {
+                const dx = targetX - player.x;
+                const dy = targetY - player.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+
+                player.angle = Math.atan2(dy, dx);
+
+                if (dist > 5) {
+                    player.x += Math.cos(player.angle) * player.speed * dt;
+                    player.y += Math.sin(player.angle) * player.speed * dt;
+                } else {
+                    targetX = null; // Arrived
+                }
+
+                // Mouth animation
+                player.mouth = Math.abs(Math.sin(timestamp * 10)) * 0.4;
+            }
+
+            // Move Ghost (Patrol vertically)
+            ghost.y += ghost.speed * ghost.dir * dt;
+            if (ghost.y > height * 0.6 || ghost.y < height * 0.2) {
+                ghost.dir *= -1;
+            }
+
+            // Collision Check (Burger)
+            const dx = player.x - burger.x;
+            const dy = player.y - burger.y;
+            if (Math.sqrt(dx*dx + dy*dy) < player.radius + burger.radius) {
+                winGame();
+            }
+        }
+
+        let timestamp = 0; // Global for animation
+        function draw() {
+            timestamp = Date.now() / 1000;
+
+            // Clear
+            ctx.fillStyle = COLORS.bg;
+            ctx.fillRect(0, 0, width, height);
+
+            drawWalls();
+            drawBurger(burger.x, burger.y, burger.radius);
+            drawGhost(ghost.x, ghost.y, ghost.radius);
+            drawPacman(player.x, player.y, player.radius, player.angle, player.mouth);
+        }
+
+        function winGame() {
+            gameRunning = false;
+            endCard.classList.add('visible');
+            tutorial.style.display = 'none';
+        }
+
+        function installApp() {
+             if (window.mraid && window.mraid.open) {
+                window.mraid.open("https://www.migros.com.tr/yemek");
+            } else if (window.dapi && window.dapi.openStoreUrl) {
+                window.dapi.openStoreUrl();
+            } else {
+                window.open("https://www.migros.com.tr/yemek", "_blank");
+            }
+        }
+
+        window.addEventListener('resize', resize);
+        resize(); // Initial init
+        requestAnimationFrame(loop);
+
+    </script>
+</body>
+</html>
