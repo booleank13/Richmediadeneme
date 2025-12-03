@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Migros Yemek Playable</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700;900&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Poppins', sans-serif;
+            overflow: hidden;
+            touch-action: none; /* Prevent default touch scrolling */
+        }
+
+        #ad-container {
+            width: 320px;
+            height: 480px;
+            background-color: #001220; /* Dark Blue */
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        /* Header */
+        header {
+            height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #001220;
+            z-index: 10;
+            padding-top: 10px;
+            border-bottom: 2px solid #003366;
+        }
+
+        .logo-text {
+            font-size: 28px;
+            line-height: 1;
+            text-align: center;
+            font-weight: 900;
+        }
+        .logo-migros { color: white; }
+        .logo-yemek { color: #FF6600; }
+
+        /* Game Area */
+        #game-wrapper {
+            flex: 1;
+            position: relative;
+            width: 100%;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* End Screen UI */
+        #end-card {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 18, 32, 0.95);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+
+        #end-card.visible {
+            display: flex;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .congrats-text {
+            color: white;
+            font-size: 32px;
+            font-weight: 900;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+        }
+
+        .cta-button {
+            background-color: #FF6600;
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            font-size: 24px;
+            font-weight: 700;
+            border-radius: 40px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #cc5200;
+            transition: transform 0.1s;
+            text-transform: uppercase;
+            animation: pulseCTA 2s infinite;
+        }
+
+        .cta-button:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        /* Tutorial Hand */
+        #tutorial {
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            color: white;
+            font-size: 20px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            animation: pulse 1.5s infinite;
+            z-index: 15;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 0.5; transform: translate(-50%, -50%) scale(1.1); }
+            100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        @keyframes pulseCTA {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="ad-container">
+        <header>
+            <div class="logo-text logo-migros">MIGROS</div>
+            <div class="logo-text logo-yemek">YEMEK</div>
+        </header>
+
+        <div id="game-wrapper">
+            <canvas id="gameCanvas"></canvas>
+            <div id="tutorial">SWIPE TO MOVE</div>
+        </div>
+
+        <div id="end-card">
+            <div class="congrats-text">TEBRIKLER!</div>
+            <button class="cta-button" onclick="installApp()">SİPARİŞ VER</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const endCard = document.getElementById('end-card');
+        const tutorial = document.getElementById('tutorial');
+
+        // --- Configuration ---
+        const COLS = 15;
+        const ROWS = 19;
+        let TILE_SIZE = 0;
+        let OFFSET_X = 0;
+        let OFFSET_Y = 0;
+
+        const WALL = 1;
+        const DOT = 0;
+        const BURGER = 2;
+        const EMPTY = 9;
+        const START = 'S';
+        const GHOST = 'G';
+
+        // Map: 1=Wall, 0=Dot, 2=Burger, 9=Empty, S=Start, G=Ghost
+        const MAP = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+            [1,0,1,1,0,1,0,1,0,1,0,1,1,0,1],
+            [1,0,1,1,0,1,0,1,0,1,0,1,1,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,1,1,0,1,1,1,1,1,0,1,1,0,1],
+            [1,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+            [1,1,1,1,0,1,0,1,0,1,0,1,1,1,1],
+            [1,1,1,1,0,1,9,'G',9,1,0,1,1,1,1],
+            [1,0,0,0,0,1,9,9,9,1,0,0,0,0,1],
+            [1,1,1,1,0,1,1,1,1,1,0,1,1,1,1],
+            [1,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+            [1,0,1,1,0,1,0,1,0,1,0,1,1,0,1],
+            [1,0,0,1,0,0,0,'S',0,0,0,1,0,0,1],
+            [1,1,0,1,0,1,1,1,1,1,0,1,0,1,1],
+            [1,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+            [1,0,1,1,1,1,0,1,0,1,1,1,1,0,1],
+            [1,0,0,0,0,0,0,2,0,0,0,0,0,0,1], // Burger at bottom center
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+
+        let gameRunning = true;
+        let score = 0;
+
+        // Entities
+        const player = { c: 0, r: 0, x: 0, y: 0, nextDir: null, curDir: null, speed: 120, moving: false };
+        const ghost = { c: 0, r: 0, x: 0, y: 0, dir: null, speed: 80, moving: false };
+        const burger = { c: 0, r: 0, active: true };
+        let pellets = []; // Array of {c, r, active}
+
+        // Colors
+        const COLORS = {
+            bg: '#001220',
+            wall: '#003366',
+            wallStroke: '#0055AA',
+            pacman: '#FFD700',
+            dot: '#FFD700',
+            ghost: '#DD2222'
+        };
+
+        function resize() {
+            const wrapper = document.getElementById('game-wrapper');
+            const rect = wrapper.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            // Calculate Tile Size to fit
+            const tileW = canvas.width / COLS;
+            const tileH = canvas.height / ROWS;
+            TILE_SIZE = Math.min(tileW, tileH); // Keep square tiles
+
+            // Center grid
+            OFFSET_X = (canvas.width - (COLS * TILE_SIZE)) / 2;
+            OFFSET_Y = (canvas.height - (ROWS * TILE_SIZE)) / 2;
+
+            initGame();
+        }
+
+        function initGame() {
+            pellets = [];
+            gameRunning = true;
+            score = 0;
+            player.nextDir = null;
+            player.curDir = null;
+
+            // Parse Map
+            for(let r=0; r<ROWS; r++) {
+                for(let c=0; c<COLS; c++) {
+                    const tile = MAP[r][c];
+                    if (tile === DOT) {
+                        pellets.push({c, r, active: true});
+                    } else if (tile === START) {
+                        player.c = c;
+                        player.r = r;
+                        // Snap to center of tile
+                        player.x = c * TILE_SIZE + TILE_SIZE/2;
+                        player.y = r * TILE_SIZE + TILE_SIZE/2;
+                    } else if (tile === GHOST) {
+                        ghost.c = c;
+                        ghost.r = r;
+                        ghost.x = c * TILE_SIZE + TILE_SIZE/2;
+                        ghost.y = r * TILE_SIZE + TILE_SIZE/2;
+                    } else if (tile === BURGER) {
+                        burger.c = c;
+                        burger.r = r;
+                    }
+                }
+            }
+        }
+
+        // --- Input Handling (Swipe) ---
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        canvas.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+            tutorial.style.display = 'none';
+        }, {passive: false});
+
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault(); // Prevent scrolling
+            const touchEndX = e.changedTouches[0].screenX;
+            const touchEndY = e.changedTouches[0].screenY;
+            handleSwipe(touchStartX, touchStartY, touchEndX, touchEndY);
+        }, {passive: false});
+
+        // Mouse support for desktop testing
+        let mouseDownX = 0;
+        let mouseDownY = 0;
+        canvas.addEventListener('mousedown', (e) => {
+            mouseDownX = e.clientX;
+            mouseDownY = e.clientY;
+            tutorial.style.display = 'none';
+        });
+        canvas.addEventListener('mouseup', (e) => {
+            handleSwipe(mouseDownX, mouseDownY, e.clientX, e.clientY);
+        });
+
+        function handleSwipe(x1, y1, x2, y2) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            if (Math.abs(dx) > Math.abs(dy)) {
+                // Horizontal
+                if (Math.abs(dx) > 10) {
+                    player.nextDir = dx > 0 ? {x:1, y:0} : {x:-1, y:0};
+                }
+            } else {
+                // Vertical
+                if (Math.abs(dy) > 10) {
+                    player.nextDir = dy > 0 ? {x:0, y:1} : {x:0, y:-1};
+                }
+            }
+        }
+
+        // --- Game Logic ---
+
+        function isWall(c, r) {
+            // Treat Out of Bounds as Walls for physics
+            if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return true;
+            return MAP[r][c] === WALL;
+        }
+
+        function moveEntity(entity, dt) {
+            const speed = entity.speed * dt;
+
+            // If we have a next direction queued and we are near the center of a tile, try to turn
+            const pixelX = entity.c * TILE_SIZE + TILE_SIZE/2;
+            const pixelY = entity.r * TILE_SIZE + TILE_SIZE/2;
+            const dist = Math.sqrt((entity.x - pixelX)**2 + (entity.y - pixelY)**2);
+
+            // Turning Logic for Player
+            if (entity === player && player.nextDir && dist < speed * 2) {
+                // Check if nextDir is valid
+                if (!isWall(entity.c + player.nextDir.x, entity.r + player.nextDir.y)) {
+                    // Snap to center and change dir
+                    entity.x = pixelX;
+                    entity.y = pixelY;
+                    player.curDir = player.nextDir;
+                    player.nextDir = null;
+                }
+            }
+
+            // Move
+            if (entity.curDir) {
+                // Check if we are about to hit a wall in current direction
+                // moving in +X
+                if (entity.curDir.x > 0 && entity.x >= pixelX) {
+                    if (isWall(entity.c + 1, entity.r)) {
+                        entity.x = pixelX; // Stop at center
+                        return;
+                    }
+                }
+                // moving in -X
+                if (entity.curDir.x < 0 && entity.x <= pixelX) {
+                    if (isWall(entity.c - 1, entity.r)) {
+                        entity.x = pixelX;
+                        return;
+                    }
+                }
+                 // moving in +Y
+                if (entity.curDir.y > 0 && entity.y >= pixelY) {
+                    if (isWall(entity.c, entity.r + 1)) {
+                        entity.y = pixelY;
+                        return;
+                    }
+                }
+                // moving in -Y
+                if (entity.curDir.y < 0 && entity.y <= pixelY) {
+                    if (isWall(entity.c, entity.r - 1)) {
+                        entity.y = pixelY;
+                        return;
+                    }
+                }
+
+                entity.x += entity.curDir.x * speed;
+                entity.y += entity.curDir.y * speed;
+            }
+
+            // Update Grid Coordinates
+            entity.c = Math.floor((entity.x - TILE_SIZE/2) / TILE_SIZE + 0.5);
+            entity.r = Math.floor((entity.y - TILE_SIZE/2) / TILE_SIZE + 0.5);
+
+            entity.c = Math.max(0, Math.min(COLS-1, entity.c));
+            entity.r = Math.max(0, Math.min(ROWS-1, entity.r));
+        }
+
+        function updateGhost(dt) {
+            if (!ghost.dir) ghost.dir = {x: 1, y: 0};
+
+            const pixelX = ghost.c * TILE_SIZE + TILE_SIZE/2;
+            const pixelY = ghost.r * TILE_SIZE + TILE_SIZE/2;
+            const dist = Math.sqrt((ghost.x - pixelX)**2 + (ghost.y - pixelY)**2);
+
+            const speed = ghost.speed * dt;
+
+            // At intersection (center of tile), choose new direction
+            if (dist < speed * 2) {
+                ghost.x = pixelX;
+                ghost.y = pixelY;
+
+                const validDirs = [];
+                // Check all 4 dirs
+                const dirs = [{x:0, y:-1}, {x:0, y:1}, {x:-1, y:0}, {x:1, y:0}];
+                dirs.forEach(d => {
+                    // Don't reverse immediately unless stuck
+                    if (d.x === -ghost.dir.x && d.y === -ghost.dir.y) return;
+                    if (!isWall(ghost.c + d.x, ghost.r + d.y)) {
+                        validDirs.push(d);
+                    }
+                });
+
+                if (validDirs.length > 0) {
+                    ghost.dir = validDirs[Math.floor(Math.random() * validDirs.length)];
+                } else {
+                    // Dead end, reverse
+                    ghost.dir = {x: -ghost.dir.x, y: -ghost.dir.y};
+                }
+            }
+
+            ghost.x += ghost.dir.x * speed;
+            ghost.y += ghost.dir.y * speed;
+
+            ghost.c = Math.floor(ghost.x / TILE_SIZE);
+            ghost.r = Math.floor(ghost.y / TILE_SIZE);
+        }
+
+        function checkCollisions() {
+            // Pellets
+            pellets.forEach(p => {
+                if (p.active && Math.abs(player.c - p.c) < 0.5 && Math.abs(player.r - p.r) < 0.5) {
+                    p.active = false;
+                    score += 10;
+                }
+            });
+
+            // Burger (Win)
+            if (Math.abs(player.c - burger.c) < 0.5 && Math.abs(player.r - burger.r) < 0.5) {
+                winGame();
+            }
+
+            // Ghost
+            const dx = player.x - ghost.x;
+            const dy = player.y - ghost.y;
+            if (Math.sqrt(dx*dx + dy*dy) < TILE_SIZE * 0.8) {
+                // Hit ghost - Reset player to start
+                const startPos = getStartPos();
+                player.c = startPos.c;
+                player.r = startPos.r;
+                player.x = startPos.c * TILE_SIZE + TILE_SIZE/2;
+                player.y = startPos.r * TILE_SIZE + TILE_SIZE/2;
+                player.curDir = null;
+                player.nextDir = null;
+            }
+        }
+
+        function getStartPos() {
+            for(let r=0; r<ROWS; r++) {
+                for(let c=0; c<COLS; c++) {
+                    if (MAP[r][c] === START) return {c, r};
+                }
+            }
+            return {c:1, r:1};
+        }
+
+        function update(dt) {
+            if (!gameRunning) return;
+            moveEntity(player, dt);
+            updateGhost(dt);
+            checkCollisions();
+        }
+
+        // --- Drawing ---
+
+        function drawWallRect(c, r) {
+            const x = OFFSET_X + c * TILE_SIZE;
+            const y = OFFSET_Y + r * TILE_SIZE;
+            const ts = TILE_SIZE;
+
+            ctx.fillStyle = COLORS.wall;
+            ctx.fillRect(x, y, ts, ts);
+
+            ctx.strokeStyle = COLORS.wallStroke;
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+
+            // Check neighbors for smart borders
+            // We only draw the stroke if the neighbor is NOT a wall
+            // Top
+            if (!isWall(c, r-1)) {
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + ts, y);
+            }
+            // Bottom
+            if (!isWall(c, r+1)) {
+                ctx.moveTo(x, y + ts);
+                ctx.lineTo(x + ts, y + ts);
+            }
+            // Left
+            if (!isWall(c-1, r)) {
+                ctx.moveTo(x, y);
+                ctx.lineTo(x, y + ts);
+            }
+            // Right
+            if (!isWall(c+1, r)) {
+                ctx.moveTo(x + ts, y);
+                ctx.lineTo(x + ts, y + ts);
+            }
+            ctx.stroke();
+        }
+
+        function drawPellet(p) {
+            if (!p.active) return;
+            const x = OFFSET_X + p.c * TILE_SIZE + TILE_SIZE/2;
+            const y = OFFSET_Y + p.r * TILE_SIZE + TILE_SIZE/2;
+            ctx.fillStyle = COLORS.dot;
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+        function drawBurgerSprite() {
+            const cx = OFFSET_X + burger.c * TILE_SIZE + TILE_SIZE/2;
+            const cy = OFFSET_Y + burger.r * TILE_SIZE + TILE_SIZE/2;
+            const r = TILE_SIZE * 0.8;
+
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            // Bun Bottom
+            ctx.fillStyle = '#E6A15C';
+            ctx.beginPath();
+            ctx.arc(0, r*0.2, r*0.5, 0, Math.PI, false);
+            ctx.fill();
+
+            // Lettuce
+            ctx.fillStyle = '#44AA44';
+            ctx.fillRect(-r*0.5, r*0.1, r, r*0.1);
+
+            // Meat
+            ctx.fillStyle = '#663300';
+            ctx.fillRect(-r*0.45, -r*0.1, r*0.9, r*0.2);
+
+            // Bun Top
+            ctx.fillStyle = '#E6A15C';
+            ctx.beginPath();
+            ctx.arc(0, -r*0.2, r*0.5, Math.PI, 0, false);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawPlayer() {
+            const x = OFFSET_X + player.x;
+            const y = OFFSET_Y + player.y;
+            const r = TILE_SIZE * 0.4;
+
+            let angle = 0;
+            if (player.curDir) {
+                if (player.curDir.x === 1) angle = 0;
+                if (player.curDir.x === -1) angle = Math.PI;
+                if (player.curDir.y === 1) angle = Math.PI/2;
+                if (player.curDir.y === -1) angle = -Math.PI/2;
+            }
+
+            const mouth = Math.abs(Math.sin(Date.now() / 100)) * 0.4;
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.fillStyle = COLORS.pacman;
+            ctx.beginPath();
+            ctx.arc(0, 0, r, mouth, Math.PI * 2 - mouth);
+            ctx.lineTo(0, 0);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawGhostSprite() {
+            const x = OFFSET_X + ghost.x;
+            const y = OFFSET_Y + ghost.y;
+            const r = TILE_SIZE * 0.4;
+
+            ctx.save();
+            ctx.translate(x, y);
+
+            ctx.fillStyle = COLORS.ghost;
+            ctx.beginPath();
+            ctx.arc(0, -r*0.2, r, Math.PI, 0);
+            ctx.lineTo(r, r);
+            ctx.lineTo(r*0.33, r*0.7);
+            ctx.lineTo(-r*0.33, r);
+            ctx.lineTo(-r, r);
+            ctx.fill();
+
+            // Eyes
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(-r*0.35, -r*0.2, r*0.35, 0, Math.PI*2);
+            ctx.arc(r*0.35, -r*0.2, r*0.35, 0, Math.PI*2);
+            ctx.fill();
+
+            ctx.fillStyle = 'blue';
+            ctx.beginPath();
+            ctx.arc(-r*0.35, -r*0.2, r*0.15, 0, Math.PI*2);
+            ctx.arc(r*0.35, -r*0.2, r*0.15, 0, Math.PI*2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function draw() {
+            // BG
+            ctx.fillStyle = COLORS.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Border around Grid
+            ctx.strokeStyle = COLORS.wallStroke;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(OFFSET_X, OFFSET_Y, COLS*TILE_SIZE, ROWS*TILE_SIZE);
+
+            // Walls
+            for(let r=0; r<ROWS; r++) {
+                for(let c=0; c<COLS; c++) {
+                    if (MAP[r][c] === WALL) drawWallRect(c, r);
+                }
+            }
+
+            // Pellets
+            pellets.forEach(drawPellet);
+
+            // Burger
+            drawBurgerSprite();
+
+            // Entities
+            drawPlayer();
+            drawGhostSprite();
+        }
+
+        let lastTime = 0;
+        function gameLoop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            let dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            // Cap dt to prevent jumps
+            if (dt > 0.1) dt = 0.1;
+
+            if (gameRunning) {
+                update(dt);
+                draw();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function winGame() {
+            gameRunning = false;
+            endCard.classList.add('visible');
+            tutorial.style.display = 'none';
+        }
+
+        function installApp() {
+            console.log("Install Clicked");
+            if (window.mraid && window.mraid.open) {
+                window.mraid.open("https://www.migros.com.tr/yemek");
+            } else if (window.dapi && window.dapi.openStoreUrl) {
+                window.dapi.openStoreUrl();
+            } else {
+                window.open("https://www.migros.com.tr/yemek", "_blank");
+            }
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+        requestAnimationFrame(gameLoop);
+
+    </script>
+</body>
+</html>

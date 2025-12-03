@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Evidea Domino</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 320px;
+            height: 480px;
+            background-color: #f5f5f5;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            perspective: 800px; /* Essential for 3D effect */
+        }
+
+        /* Branding Header */
+        header {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            z-index: 10;
+        }
+
+        header img {
+            height: 30px;
+        }
+
+        /* Domino Setup */
+        .domino-stage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -20%) rotateX(20deg);
+            width: 200px;
+            height: 300px;
+            transform-style: preserve-3d;
+        }
+
+        .domino {
+            position: absolute;
+            width: 40px;
+            height: 80px;
+            background: linear-gradient(135deg, #333, #000);
+            border-radius: 4px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.4);
+            transform-origin: bottom center;
+            transition: transform 0.3s ease-in;
+            left: 50%;
+            margin-left: -20px; /* Center horizontally */
+        }
+
+        /* Domino Face Detail */
+        .domino::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 80%;
+            height: 2px;
+            background: rgba(255,255,255,0.2);
+            transform: translate(-50%, -50%);
+        }
+
+        .domino::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        /* Positions (Simulating a line going back into depth or sideways)
+           Let's do a curved line or straight line.
+           Straight line going 'back' into Z space is hard to click.
+           Let's do a diagonal line or side view.
+           Side view is best for 2D but user asked for "Domino stones".
+           Let's do a line from bottom-left to top-right in 3D space.
+        */
+
+        /* Let's try a simple row in perspective */
+
+        /* Animation Classes */
+        .domino.fallen {
+            transform: rotateX(70deg);
+            box-shadow: 0px 5px 5px rgba(0,0,0,0.2);
+        }
+
+        /* Interaction Hint */
+        #hint {
+            position: absolute;
+            top: 70%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(242, 113, 33, 0.9); /* Evidea Orange */
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            pointer-events: none;
+            animation: bounce 1s infinite;
+            z-index: 100;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-10px); }
+        }
+
+        /* End Screen */
+        #end-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.95);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.5s;
+            z-index: 200;
+        }
+
+        #end-screen img {
+            width: 180px;
+            margin-bottom: 30px;
+        }
+
+        .cta-button {
+            background-color: #f27121;
+            color: white;
+            padding: 15px 40px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 18px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 0 #d15b14;
+            transition: transform 0.1s;
+        }
+
+        .cta-button:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 24px;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <header>
+        <img src="https://6d85e174.cdn.akinoncloud.com/static_omnishop/2025-11-28.1-prod/img/evidea-header-logo.png" alt="Evidea">
+    </header>
+
+    <div class="domino-stage" id="stage">
+        <!-- Dominoes will be generated here -->
+    </div>
+
+    <div id="hint">DOKUN VE DEVİR!</div>
+
+    <div id="end-screen">
+        <img src="https://6d85e174.cdn.akinoncloud.com/static_omnishop/2025-11-28.1-prod/img/evidea-header-logo.png" alt="Evidea">
+        <h2>Evin İçin Her Şey!</h2>
+        <a href="https://www.evidea.com/" class="cta-button" target="_blank">ALIŞVERİŞE BAŞLA</a>
+    </div>
+</div>
+
+<script>
+    const stage = document.getElementById('stage');
+    const hint = document.getElementById('hint');
+    const endScreen = document.getElementById('end-screen');
+    const dominoCount = 8;
+    const dominoes = [];
+
+    // Initialize Dominoes
+    function init() {
+        for (let i = 0; i < dominoCount; i++) {
+            const el = document.createElement('div');
+            el.classList.add('domino');
+
+            // Position them in a diagonal line going back
+            // Adjust Z and Top/Left to create depth
+            // We want the first one close to bottom, last one far away
+
+            // Using Z-index to manage layering naturally (back ones first in DOM usually work if using preserve-3d?
+            // Actually, if we use translateZ, nearest ones should be last or z-index needs management.
+            // Let's keep it simple: Stack vertically on screen.
+
+            const yPos = 200 - (i * 35); // Start low, go up
+            const zPos = - (i * 40); // Go back
+            const delay = i * 0; // No animation yet
+
+            el.style.transform = `translate3d(0, ${yPos}px, ${zPos}px)`;
+            el.style.zIndex = dominoCount - i; // Closer ones on top
+
+            // Store data
+            el.dataset.index = i;
+
+            // Click handler for the first one
+            if (i === 0) {
+                el.style.cursor = 'pointer';
+                el.addEventListener('click', startChainReaction);
+                el.addEventListener('touchstart', startChainReaction, {passive: false});
+            }
+
+            stage.appendChild(el);
+            dominoes.push(el);
+        }
+    }
+
+    let started = false;
+
+    function startChainReaction(e) {
+        if(e) e.preventDefault();
+        if (started) return;
+        started = true;
+        hint.style.display = 'none';
+
+        // Animate one by one
+        let current = 0;
+
+        function toppleNext() {
+            if (current >= dominoCount) {
+                setTimeout(showEndScreen, 500);
+                return;
+            }
+
+            const el = dominoes[current];
+            const yPos = 200 - (current * 35);
+            const zPos = - (current * 40);
+
+            // Add 'fallen' state but keep position
+            // RotateX needs to be combined with the translation
+            el.style.transform = `translate3d(0, ${yPos}px, ${zPos}px) rotateX(80deg)`;
+
+            current++;
+
+            // Next one falls slightly faster as momentum builds?
+            // Simple constant delay for "clack clack clack" effect
+            setTimeout(toppleNext, 200);
+        }
+
+        toppleNext();
+    }
+
+    function showEndScreen() {
+        endScreen.style.display = 'flex';
+        // Trigger reflow
+        void endScreen.offsetWidth;
+        endScreen.style.opacity = '1';
+    }
+
+    // Auto-start interaction listener on container if user misses the domino
+    document.getElementById('game-container').addEventListener('click', (e) => {
+        if (!started && e.target.id !== 'cta-btn') { // Don't block CTA
+             // If they tap anywhere, guide them or just start it?
+             // Let's just start it to be friendly.
+             startChainReaction();
+        }
+    });
+
+    init();
+
+</script>
+
+</body>
+</html>

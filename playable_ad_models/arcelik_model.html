@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arçelik Senaryo Eşleştirme</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #ad-container {
+            width: 320px;
+            height: 480px; /* Interstitial size */
+            background-color: white;
+            position: relative;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border-radius: 8px;
+        }
+
+        #close-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 24px;
+            height: 24px;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        #header {
+            background-color: #D62027; /* Arçelik Red */
+            color: white;
+            text-align: center;
+            padding: 20px 0;
+            font-weight: bold;
+            font-size: 18px;
+            text-transform: uppercase;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        #game-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+
+        #prompt-box {
+            background-color: white;
+            padding: 15px 30px;
+            border-radius: 25px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+            font-weight: bold;
+            color: #333;
+            font-size: 16px;
+            border: 1px solid #eee;
+        }
+
+        #icons-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .icon-circle {
+            width: 50px;
+            height: 50px;
+            background-color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border: 1px solid #ddd;
+        }
+
+        .icon-circle svg {
+            width: 24px;
+            height: 24px;
+            fill: #555;
+        }
+
+        #options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .option-btn {
+            background-color: white;
+            border: 2px solid #D62027;
+            color: #D62027;
+            padding: 12px;
+            border-radius: 25px;
+            text-align: center;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .option-btn:hover {
+            background-color: #fff0f0;
+        }
+
+        .option-btn.selected {
+            background-color: #D62027;
+            color: white;
+        }
+
+        .option-btn.error {
+            animation: shake 0.5s;
+            border-color: #999;
+            color: #999;
+        }
+
+        #cta-container {
+            padding: 20px;
+            background-color: white;
+            border-top: 1px solid #eee;
+        }
+
+        #cta-btn {
+            width: 100%;
+            background-color: #D62027;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .pulse {
+            animation: pulse 1s infinite;
+        }
+
+        /* Success checkmark overlay */
+        #success-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+
+        #success-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .check-circle {
+            width: 80px;
+            height: 80px;
+            background: #4CAF50;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 40px;
+            margin-bottom: 20px;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="ad-container">
+    <div id="close-btn">✕</div>
+
+    <div id="header">
+        SENARYOYU EŞLEŞTİR!
+    </div>
+
+    <div id="game-area">
+        <div id="prompt-box">
+            Uyuma zamanı.
+        </div>
+
+        <div id="icons-row">
+            <div class="icon-circle">
+                <!-- Home Icon -->
+                <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            </div>
+            <div class="icon-circle">
+                <!-- AC Icon (Snowflake/Wind representation) -->
+                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v4h-2zm0 10h2v-4h-2zm-5-5h4v-2H6zm10 0h-4v-2h4z"/></svg>
+            </div>
+            <div class="icon-circle">
+                <!-- Lightbulb Icon -->
+                <svg viewBox="0 0 24 24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6C7.94 12.3 7 10.74 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.74-.94 3.3-2.15 4.1z"/></svg>
+            </div>
+        </div>
+
+        <div id="options-container">
+            <div class="option-btn" onclick="checkAnswer(this, 'evden_uzak')">Evden uzakta</div>
+            <div class="option-btn" onclick="checkAnswer(this, 'uyku')">Uyuma zamanı</div>
+            <div class="option-btn" onclick="checkAnswer(this, 'misafir')">Misafir geldi</div>
+        </div>
+    </div>
+
+    <div id="cta-container">
+        <button id="cta-btn" onclick="window.open('https://www.arcelik.com.tr', '_blank')">HEMEN YÜKLE</button>
+    </div>
+
+    <div id="success-overlay">
+        <div class="check-circle">✓</div>
+        <div style="font-weight: bold; font-size: 20px; color: #333;">Harika!</div>
+        <p style="color: #666;">Akıllı eviniz hazır.</p>
+        <button id="cta-btn-final" style="background-color: #D62027; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; margin-top: 10px;" onclick="window.open('https://www.arcelik.com.tr', '_blank')">HEMEN YÜKLE</button>
+    </div>
+</div>
+
+<script>
+    let answered = false;
+    const correctAnswer = 'uyku';
+
+    function checkAnswer(btn, answer) {
+        if (answered) return;
+
+        if (answer === correctAnswer) {
+            answered = true;
+            btn.classList.add('selected');
+            document.getElementById('cta-btn').classList.add('pulse');
+
+            // Show icons reacting (simple opacity change for visual feedback)
+            const icons = document.querySelectorAll('.icon-circle svg');
+            icons.forEach(icon => icon.style.fill = '#D62027');
+
+            setTimeout(() => {
+                document.getElementById('success-overlay').classList.add('visible');
+            }, 500);
+        } else {
+            btn.classList.add('error');
+            setTimeout(() => {
+                btn.classList.remove('error');
+            }, 500);
+        }
+    }
+
+    // Auto-redirect simulation for testing context
+    document.getElementById('close-btn').addEventListener('click', function() {
+        console.log('Ad closed');
+        // In a real ad, this would close the interstitial
+    });
+</script>
+
+</body>
+</html>

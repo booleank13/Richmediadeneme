@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aksigorta Playable Ad</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #333; /* Dark background outside ad */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #ad-container {
+            width: 320px;
+            height: 480px;
+            background-color: #e0e0e0;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        /* Header */
+        header {
+            background-color: #D7282F; /* Aksigorta Red */
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-weight: 800;
+            font-size: 20px;
+            letter-spacing: 1px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+
+        /* Game Area */
+        #game-canvas {
+            background-color: #a8d5aa; /* Light green grass color */
+            display: block;
+            width: 100%;
+            flex: 1; /* Fills remaining height */
+            cursor: pointer;
+        }
+
+        /* Footer / CTA */
+        #footer {
+            background-color: white;
+            padding: 15px;
+            text-align: center;
+            border-top: 1px solid #ccc;
+            z-index: 10;
+        }
+
+        #cta-btn {
+            background-color: #D7282F;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 4px 0 #a01015;
+            transition: transform 0.1s;
+            animation: pulse 1.5s infinite;
+        }
+
+        #cta-btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        /* Instructions Overlay */
+        #instructions {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .instruction-tag {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-weight: bold;
+            display: inline-block;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* End Screen Overlay */
+        #end-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(215, 40, 47, 0.95); /* Red overlay */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+            z-index: 20;
+        }
+
+        #end-screen.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #end-message {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        #final-cta {
+            background-color: white;
+            color: #D7282F;
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        /* Close Button */
+        #close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 24px;
+            height: 24px;
+            background: rgba(0,0,0,0.3);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            cursor: pointer;
+            z-index: 20;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Control Hints */
+        #controls-hint {
+            position: absolute;
+            bottom: 80px;
+            width: 100%;
+            text-align: center;
+            color: rgba(0,0,0,0.5);
+            font-size: 12px;
+            pointer-events: none;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="ad-container">
+    <div id="close-btn" onclick="console.log('Ad closed')">✕</div>
+
+    <header>AKSIGORTA</header>
+
+    <div id="instructions">
+        <div class="instruction-tag">Karşıya geçin!</div>
+    </div>
+
+    <canvas id="game-canvas" width="320" height="350"></canvas>
+
+    <div id="controls-hint">Tap to move</div>
+
+    <div id="footer">
+        <button id="cta-btn" onclick="winGame()">HEMEN KORUN</button>
+    </div>
+
+    <div id="end-screen">
+        <div id="end-message">GÜVENDESİN!</div>
+        <!-- Shield Icon SVG -->
+        <svg width="80" height="80" viewBox="0 0 24 24" fill="white" style="margin-bottom: 20px;">
+            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
+        </svg>
+        <button id="final-cta" onclick="window.open('https://www.aksigorta.com.tr', '_blank')">HEMEN KORUN</button>
+    </div>
+</div>
+
+<script>
+    // Game Setup
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Grid settings
+    const gridSize = 40; // 320 / 8 cols
+    const cols = 8;
+    const rows = 9; // Approx fit in 350px height
+
+    let gameActive = true;
+    let lastTime = 0;
+
+    // Assets
+    const player = {
+        x: 3, // Grid coords
+        y: 8,
+        color: '#6BC068', // Green
+        radius: 12
+    };
+
+    const goal = {
+        x: 3,
+        y: 0,
+        width: 2, // span 2 cols
+        color: '#FFD700'
+    };
+
+    // Obstacles
+    let cars = [];
+    let fires = [];
+
+    // Initialize Levels
+    function initGame() {
+        // Lane 1 (Row 6): Cars moving right
+        cars.push({ x: 0, y: 6, speed: 2, color: '#2E75B6', width: 60 });
+        cars.push({ x: -150, y: 6, speed: 2, color: '#2E75B6', width: 60 });
+
+        // Lane 2 (Row 4): Fire (Static Hazards)
+        fires.push({ x: 2, y: 4 });
+        fires.push({ x: 5, y: 4 });
+
+        // Lane 3 (Row 2): Cars moving left
+        cars.push({ x: 320, y: 2, speed: -2.5, color: '#2E75B6', width: 60 });
+        cars.push({ x: 480, y: 2, speed: -2.5, color: '#2E75B6', width: 60 });
+    }
+
+    // Input Handling
+    canvas.addEventListener('mousedown', handleInput);
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault(); // Prevent scrolling
+        handleInput(e.changedTouches[0]);
+    }, {passive: false});
+
+    function handleInput(e) {
+        if (!gameActive) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const clickY = e.clientY - rect.top;
+
+        const pCenterX = player.x * gridSize + gridSize/2;
+        const pCenterY = player.y * gridSize + gridSize/2;
+
+        // Simple relative movement
+        const dx = clickX - pCenterX;
+        const dy = clickY - pCenterY;
+
+        if (Math.abs(dx) > Math.abs(dy)) {
+            // Horizontal
+            if (dx > 0) movePlayer(1, 0);
+            else movePlayer(-1, 0);
+        } else {
+            // Vertical
+            if (dy > 0) movePlayer(0, 1);
+            else movePlayer(0, -1);
+        }
+    }
+
+    function movePlayer(dx, dy) {
+        const newX = player.x + dx;
+        const newY = player.y + dy;
+
+        // Bounds check
+        if (newX >= 0 && newX < cols && newY >= 0 && newY < rows) {
+            player.x = newX;
+            player.y = newY;
+            checkWin();
+        }
+    }
+
+    function checkWin() {
+        // Goal is at row 0
+        if (player.y === 0) {
+            winGame();
+        }
+    }
+
+    function winGame() {
+        gameActive = false;
+        document.getElementById('end-screen').classList.add('visible');
+    }
+
+    function loseGame() {
+        // Simple shake effect
+        canvas.style.transform = "translate(5px, 0)";
+        setTimeout(() => canvas.style.transform = "translate(-5px, 0)", 50);
+        setTimeout(() => canvas.style.transform = "translate(0, 0)", 100);
+
+        // Reset player
+        player.x = 3;
+        player.y = 8;
+    }
+
+    function update(timestamp) {
+        if (!gameActive) return;
+
+        // Move cars
+        cars.forEach(car => {
+            car.x += car.speed;
+
+            // Loop cars
+            if (car.speed > 0 && car.x > 320) car.x = -car.width;
+            if (car.speed < 0 && car.x + car.width < 0) car.x = 320;
+        });
+
+        // Collision Detection
+        const pRect = {
+            l: player.x * gridSize + 5,
+            r: player.x * gridSize + gridSize - 5,
+            t: player.y * gridSize + 5,
+            b: player.y * gridSize + gridSize - 5
+        };
+
+        // Car collisions
+        cars.forEach(car => {
+            // Simple AABB
+            const cRect = {
+                l: car.x,
+                r: car.x + car.width,
+                t: car.y * gridSize + 5,
+                b: car.y * gridSize + gridSize - 5
+            };
+
+            if (pRect.l < cRect.r && pRect.r > cRect.l &&
+                pRect.t < cRect.b && pRect.b > cRect.t) {
+                loseGame();
+            }
+        });
+
+        // Fire collisions (Static)
+        fires.forEach(fire => {
+             const fRect = {
+                l: fire.x * gridSize + 5,
+                r: fire.x * gridSize + gridSize - 5,
+                t: fire.y * gridSize + 5,
+                b: fire.y * gridSize + gridSize - 5
+            };
+
+            if (pRect.l < fRect.r && pRect.r > fRect.l &&
+                pRect.t < fRect.b && pRect.b > fRect.t) {
+                loseGame();
+            }
+        });
+
+        draw();
+        requestAnimationFrame(update);
+    }
+
+    function draw() {
+        // Clear
+        ctx.fillStyle = '#a8d5aa'; // Grass
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Lanes (Roads)
+        ctx.fillStyle = '#555'; // Road color
+        // Lane 3 (Row 2)
+        ctx.fillRect(0, 2 * gridSize, 320, gridSize);
+        // Lane 1 (Row 6)
+        ctx.fillRect(0, 6 * gridSize, 320, gridSize);
+
+        // Draw Hazards (Fire) - Lane 2 (Row 4) - Let's make this a "Danger Zone" or just grass with fire
+        // Keeping it grass for contrast with fire
+
+        // Draw Goal (Shield Zone)
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.3)'; // Gold glow
+        ctx.fillRect(0, 0, 320, gridSize);
+
+        // Draw Shield Icon at Goal (Centered)
+        drawShield(ctx, 320/2, gridSize/2, 20);
+
+        // Draw Fires
+        fires.forEach(f => {
+            drawFire(ctx, f.x * gridSize + gridSize/2, f.y * gridSize + gridSize/2 + 5);
+        });
+
+        // Draw Cars
+        cars.forEach(c => {
+            ctx.fillStyle = c.color;
+            ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            ctx.shadowBlur = 5;
+            ctx.fillRect(c.x, c.y * gridSize + 5, c.width, gridSize - 10);
+            ctx.shadowBlur = 0;
+
+            // Wheels
+            ctx.fillStyle = 'black';
+            ctx.fillRect(c.x + 5, c.y * gridSize + gridSize - 5, 10, 5);
+            ctx.fillRect(c.x + c.width - 15, c.y * gridSize + gridSize - 5, 10, 5);
+        });
+
+        // Draw Player
+        const px = player.x * gridSize + gridSize/2;
+        const py = player.y * gridSize + gridSize/2;
+
+        // Stickman Body
+        ctx.strokeStyle = '#228B22'; // Dark Green
+        ctx.lineWidth = 3;
+
+        // Head
+        ctx.beginPath();
+        ctx.arc(px, py - 10, 6, 0, Math.PI * 2);
+        ctx.fillStyle = player.color;
+        ctx.fill();
+        ctx.stroke();
+
+        // Body
+        ctx.beginPath();
+        ctx.moveTo(px, py - 4);
+        ctx.lineTo(px, py + 10);
+        ctx.stroke();
+
+        // Arms
+        ctx.beginPath();
+        ctx.moveTo(px - 8, py);
+        ctx.lineTo(px + 8, py);
+        ctx.stroke();
+
+        // Legs
+        ctx.beginPath();
+        ctx.moveTo(px, py + 10);
+        ctx.lineTo(px - 5, py + 20);
+        ctx.moveTo(px, py + 10);
+        ctx.lineTo(px + 5, py + 20);
+        ctx.stroke();
+
+        // Indicator circle beneath to make it visible
+        ctx.beginPath();
+        ctx.arc(px, py + 20, 5, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(0,0,0,0.2)";
+        ctx.fill();
+
+    }
+
+    function drawFire(ctx, x, y) {
+        ctx.fillStyle = '#D7282F';
+        ctx.beginPath();
+        ctx.moveTo(x, y - 15);
+        ctx.lineTo(x + 10, y + 5);
+        ctx.lineTo(x - 10, y + 5);
+        ctx.fill();
+
+        // Inner flame
+        ctx.fillStyle = '#FFA500';
+        ctx.beginPath();
+        ctx.moveTo(x, y - 8);
+        ctx.lineTo(x + 5, y + 5);
+        ctx.lineTo(x - 5, y + 5);
+        ctx.fill();
+    }
+
+    function drawShield(ctx, x, y, size) {
+        ctx.fillStyle = '#6BC068'; // Green Shield
+        ctx.beginPath();
+        // Simple shield shape
+        ctx.moveTo(x, y - size);
+        ctx.quadraticCurveTo(x + size, y - size, x + size, y);
+        ctx.quadraticCurveTo(x + size, y + size, x, y + size);
+        ctx.quadraticCurveTo(x - size, y + size, x - size, y);
+        ctx.quadraticCurveTo(x - size, y - size, x, y - size);
+        ctx.fill();
+
+        // Cross or Check inside
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x - 5, y);
+        ctx.lineTo(x, y + 5);
+        ctx.lineTo(x + 8, y - 5);
+        ctx.stroke();
+    }
+
+    // Start
+    initGame();
+    requestAnimationFrame(update);
+
+</script>
+
+</body>
+</html>
