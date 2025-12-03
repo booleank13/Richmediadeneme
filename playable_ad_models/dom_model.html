@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DOM Playable Model</title>
+    <style>
+        body {
+            margin: 0; padding: 0; overflow: hidden;
+            background: linear-gradient(135deg, #f06, #4a90e2);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-container {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+        }
+
+        /* Screens */
+        .screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        .screen.active { display: flex; }
+
+        /* Intro Screen */
+        #intro-screen h1 { color: white; font-size: 3em; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .tap-hint {
+            color: white; font-size: 1.5em; margin-top: 20px;
+            animation: bounce 1s infinite;
+        }
+
+        /* Gameplay Screen */
+        #game-screen { pointer-events: none; /* Let clicks pass to container if needed, or handle on elements */ }
+
+        .card {
+            width: 100px; height: 140px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 40px;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: transform 0.2s;
+        }
+        .card:active { transform: scale(0.95); }
+        .card.matched { opacity: 0; pointer-events: none; transform: scale(1.2); transition: all 0.5s; }
+
+        /* End Screen */
+        #end-screen { background-color: rgba(0,0,0,0.85); z-index: 100; }
+        #end-screen h2 { color: white; font-size: 2.5em; margin-bottom: 20px; }
+        .cta-button {
+            background: #ffcc00;
+            color: #333;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.5em;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #d4a000;
+            animation: pulse 1.5s infinite;
+        }
+        .cta-button:active { transform: translateY(4px); box-shadow: none; }
+
+        /* Animations */
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Intro Screen -->
+        <div id="intro-screen" class="screen active">
+            <h1>Find the Pair!</h1>
+            <div class="tap-hint">Tap to Start</div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen">
+            <!-- Cards will be injected here via JS -->
+        </div>
+
+        <!-- End Screen (CTA) -->
+        <div id="end-screen" class="screen">
+            <h2>Amazing!</h2>
+            <button class="cta-button" onclick="installApp()">PLAY NOW</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Game Logic ---
+        const gameContainer = document.getElementById('game-container');
+        const introScreen = document.getElementById('intro-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const endScreen = document.getElementById('end-screen');
+
+        let hasStarted = false;
+        let matchedPairs = 0;
+        const totalPairs = 2; // Keep it simple and short for an ad
+
+        // Simple emojis for card faces
+        const icons = ['🍎', '🍌', '🍇', '🍉', '🍒', '🍓'];
+
+        function init() {
+            gameContainer.addEventListener('click', () => {
+                if (!hasStarted) {
+                    startGame();
+                }
+            });
+        }
+
+        function startGame() {
+            hasStarted = true;
+            introScreen.classList.remove('active');
+            gameScreen.classList.add('active');
+            spawnCards();
+        }
+
+        function spawnCards() {
+            // Pick random icons
+            const selectedIcons = icons.sort(() => 0.5 - Math.random()).slice(0, totalPairs);
+            const deck = [...selectedIcons, ...selectedIcons].sort(() => 0.5 - Math.random());
+
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            const gap = 20;
+
+            deck.forEach((icon, index) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerText = '?'; // Face down initially (or show for a second then hide)
+
+                // Grid positioning logic (simplified 2x2)
+                const col = index % 2;
+                const row = Math.floor(index / 2);
+                const x = centerX + (col - 0.5) * (100 + gap);
+                const y = centerY + (row - 0.5) * (140 + gap);
+
+                card.style.left = (x - 50) + 'px';
+                card.style.top = (y - 70) + 'px';
+
+                card.dataset.icon = icon;
+                card.onclick = (e) => handleCardClick(e, card);
+
+                gameScreen.appendChild(card);
+            });
+        }
+
+        let firstCard = null;
+        let isProcessing = false;
+
+        function handleCardClick(e, card) {
+            e.stopPropagation(); // Don't trigger other clicks
+            if (isProcessing || card === firstCard || card.classList.contains('matched')) return;
+
+            // Reveal
+            card.innerText = card.dataset.icon;
+            card.style.background = '#fff';
+
+            if (!firstCard) {
+                firstCard = card;
+            } else {
+                // Check match
+                isProcessing = true;
+                if (firstCard.dataset.icon === card.dataset.icon) {
+                    // Match!
+                    setTimeout(() => {
+                        firstCard.classList.add('matched');
+                        card.classList.add('matched');
+                        firstCard = null;
+                        isProcessing = false;
+                        matchedPairs++;
+                        checkWin();
+                    }, 500);
+                } else {
+                    // No match
+                    setTimeout(() => {
+                        firstCard.innerText = '?';
+                        card.innerText = '?';
+                        firstCard = null;
+                        isProcessing = false;
+                    }, 800);
+                }
+            }
+        }
+
+        function checkWin() {
+            if (matchedPairs >= totalPairs) {
+                setTimeout(() => {
+                    gameScreen.classList.remove('active');
+                    endScreen.classList.add('active');
+                }, 800);
+            }
+        }
+
+        function installApp() {
+            console.log("Install Clicked");
+            // Standard Ad Network calls
+            if (window.mraid && window.mraid.open) {
+                window.mraid.open("https://apps.apple.com/app/id123456789");
+            } else if (window.dapi && window.dapi.openStoreUrl) {
+                window.dapi.openStoreUrl();
+            } else {
+                window.open("https://play.google.com/store/apps", "_blank");
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

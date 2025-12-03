@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Canvas Playable Model</title>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #333; }
+        canvas { display: block; width: 100%; height: 100%; }
+        #cta-container {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            font-family: sans-serif;
+            z-index: 10;
+        }
+        .btn {
+            padding: 15px 30px;
+            font-size: 24px;
+            background-color: #00AAFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="cta-container">
+        <h1>Great Job!</h1>
+        <button class="btn" onclick="installApp()">INSTALL NOW</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // --- Configuration ---
+        const CONFIG = {
+            gameDuration: 10, // seconds
+            targetScore: 5
+        };
+
+        // --- State Management ---
+        const STATE = {
+            LOADING: 0,
+            INTRO: 1,
+            PLAYING: 2,
+            GAMEOVER: 3
+        };
+
+        let currentState = STATE.LOADING;
+        let score = 0;
+        let timeLeft = CONFIG.gameDuration;
+        let lastTime = 0;
+
+        // --- Graphics ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        // Game Objects
+        const player = { x: 0, y: 0, size: 50, color: '#FF0055' };
+        const target = { x: 0, y: 0, size: 30, color: '#00FF55', active: false };
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- Game Logic ---
+
+        function initGame() {
+            currentState = STATE.INTRO;
+            score = 0;
+            timeLeft = CONFIG.gameDuration;
+
+            // Setup Input
+            canvas.addEventListener('pointerdown', handleInput);
+
+            // Start Loop
+            requestAnimationFrame(gameLoop);
+        }
+
+        function spawnTarget() {
+            target.x = Math.random() * (width - 100) + 50;
+            target.y = Math.random() * (height - 100) + 50;
+            target.active = true;
+        }
+
+        function handleInput(e) {
+            if (currentState === STATE.INTRO) {
+                currentState = STATE.PLAYING;
+                spawnTarget();
+                return;
+            }
+
+            if (currentState === STATE.PLAYING) {
+                const rect = canvas.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const clickY = e.clientY - rect.top;
+
+                // Simple collision detection for tap
+                const dx = clickX - target.x;
+                const dy = clickY - target.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < target.size * 2) { // Generous hit area
+                    score++;
+                    spawnTarget();
+                    if (score >= CONFIG.targetScore) {
+                        endGame(true);
+                    }
+                }
+            }
+        }
+
+        function update(dt) {
+            if (currentState === STATE.PLAYING) {
+                timeLeft -= dt;
+                if (timeLeft <= 0) {
+                    endGame(false);
+                }
+            }
+        }
+
+        function draw() {
+            // Clear background
+            ctx.fillStyle = '#222';
+            ctx.fillRect(0, 0, width, height);
+
+            if (currentState === STATE.INTRO) {
+                ctx.fillStyle = 'white';
+                ctx.font = '30px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Tap to Start!', width / 2, height / 2);
+            } else if (currentState === STATE.PLAYING) {
+                // Draw Target
+                if (target.active) {
+                    ctx.fillStyle = target.color;
+                    ctx.beginPath();
+                    ctx.arc(target.x, target.y, target.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // UI
+                ctx.fillStyle = 'white';
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText('Score: ' + score, 20, 40);
+                ctx.textAlign = 'right';
+                ctx.fillText('Time: ' + Math.ceil(timeLeft), width - 20, 40);
+            }
+        }
+
+        function gameLoop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            update(dt);
+            draw();
+
+            if (currentState !== STATE.GAMEOVER) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function endGame(success) {
+            currentState = STATE.GAMEOVER;
+            const cta = document.getElementById('cta-container');
+            const title = cta.querySelector('h1');
+            title.innerText = success ? "You Won!" : "Try Again!";
+            cta.style.display = 'flex';
+        }
+
+        // --- Ad Network Integration ---
+        function installApp() {
+            console.log("Install Clicked");
+            // Standard Ad Network calls
+            if (window.mraid && window.mraid.open) {
+                window.mraid.open("https://apps.apple.com/app/id123456789");
+            } else if (window.dapi && window.dapi.openStoreUrl) {
+                window.dapi.openStoreUrl();
+            } else {
+                // Fallback for testing
+                window.open("https://play.google.com/store/apps", "_blank");
+            }
+        }
+
+        // Start
+        initGame();
+
+    </script>
+</body>
+</html>
