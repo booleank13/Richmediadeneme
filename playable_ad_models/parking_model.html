@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Drag to Park</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 100%;
+            height: 100%;
+            max-width: 400px;
+            max-height: 700px;
+            background-color: #333438; /* Asphalt */
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        /* Title */
+        h1 {
+            color: white;
+            text-align: center;
+            margin-top: 40px;
+            font-size: 32px;
+            line-height: 1.2;
+            text-transform: uppercase;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        /* Wall */
+        .wall {
+            position: absolute;
+            top: 150px;
+            left: 0;
+            width: 180px;
+            height: 40px;
+            background: repeating-linear-gradient(
+                45deg,
+                #b54026,
+                #b54026 10px,
+                #8a311d 10px,
+                #8a311d 12px
+            );
+            border: 2px solid #6e2717;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+        }
+
+        /* Road Markings */
+        .dashed-line {
+            position: absolute;
+            right: 40px;
+            top: 0;
+            bottom: 0;
+            width: 10px;
+            background-image: linear-gradient(to bottom, #ccc 50%, transparent 50%);
+            background-size: 10px 80px;
+            opacity: 0.8;
+        }
+
+        /* Parking Spot */
+        .parking-spot {
+            position: absolute;
+            top: 350px;
+            left: 180px;
+            width: 100px;
+            height: 160px;
+            border: 5px solid #ccc;
+            border-right: none; /* Open to road? Or simplified box */
+            box-sizing: border-box;
+            background: repeating-linear-gradient(
+                -45deg,
+                transparent,
+                transparent 10px,
+                rgba(255,255,255,0.1) 10px,
+                rgba(255,255,255,0.1) 20px
+            );
+        }
+
+        /* Cars */
+        .car {
+            position: absolute;
+            width: 60px;
+            height: 110px;
+            border-radius: 10px;
+            box-shadow: 5px 5px 10px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .car::before { /* Windshield Front */
+            content: '';
+            width: 80%;
+            height: 20%;
+            background: #222;
+            border-radius: 5px 5px 10px 10px;
+            margin-bottom: 5px;
+        }
+        .car::after { /* Windshield Back */
+            content: '';
+            width: 80%;
+            height: 15%;
+            background: #222;
+            border-radius: 10px 10px 5px 5px;
+            margin-top: 5px;
+        }
+        .roof {
+            width: 70%;
+            height: 30%;
+            background: rgba(0,0,0,0.1);
+            border-radius: 5px;
+        }
+
+        .car-blue {
+            background-color: #1e5aa8;
+            top: 220px;
+            left: 190px;
+            transform: rotate(0deg);
+        }
+
+        .car-green {
+            background-color: #2e8b40;
+            top: 220px;
+            left: 270px;
+            transform: rotate(0deg);
+        }
+
+        .car-player {
+            background-color: #fcba03;
+            top: 400px; /* Starting position */
+            left: 50px;
+            transform: rotate(45deg);
+            z-index: 10;
+            cursor: grab;
+            transition: transform 0.1s;
+        }
+
+        .car-player:active {
+            cursor: grabbing;
+            transform: scale(1.1) rotate(45deg);
+        }
+
+        /* Hand Hint */
+        .hand {
+            position: absolute;
+            top: 450px;
+            left: 80px;
+            width: 60px;
+            height: 60px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" stroke="black" stroke-width="1"><path d="M9 11.24V7.5a2.5 2.5 0 0 1 5 0v1.98a3 3 0 0 1 1.76-.73c1.65 0 3 1.35 3 3v2.86c0 3.96-3.14 7.39-7.1 7.39-3.32 0-6.15-2.28-6.9-5.3L3.5 13.5a2.5 2.5 0 0 1 3.9-2.6l1.6 1.34z"/></svg>');
+            background-repeat: no-repeat;
+            pointer-events: none;
+            z-index: 20;
+            animation: moveHand 2s infinite ease-in-out;
+        }
+
+        @keyframes moveHand {
+            0% { transform: translate(0, 0); opacity: 1; }
+            50% { transform: translate(120px, -60px); opacity: 1; }
+            100% { transform: translate(0, 0); opacity: 0; }
+        }
+
+        /* CTA Button */
+        .cta-button {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #f27121;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            padding: 15px 40px;
+            border-radius: 30px;
+            border: none;
+            box-shadow: 0 4px 0 #c2520e;
+            cursor: pointer;
+            text-transform: uppercase;
+            animation: pulse 1.5s infinite;
+            text-decoration: none;
+            display: block;
+        }
+
+        @keyframes pulse {
+            0% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.05); }
+            100% { transform: translateX(-50%) scale(1); }
+        }
+
+        #success-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 100;
+        }
+
+        #success-overlay h2 {
+            color: #fff;
+            font-size: 40px;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            text-align: center;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <h1>DRAG TO<br>PARK THE CAR</h1>
+
+    <div class="dashed-line"></div>
+    <div class="wall"></div>
+
+    <div class="parking-spot" id="parking-spot"></div>
+
+    <div class="car car-blue">
+        <div class="roof"></div>
+    </div>
+
+    <div class="car car-green">
+        <div class="roof"></div>
+    </div>
+
+    <div class="car car-player" id="player">
+        <div class="roof"></div>
+    </div>
+
+    <div class="hand" id="hand-hint"></div>
+
+    <a href="#" class="cta-button" onclick="alert('Redirect to Store')">INSTALL NOW</a>
+
+    <div id="success-overlay">
+        <h2>Awesome!</h2>
+        <a href="#" class="cta-button" onclick="alert('Redirect to Store')">PLAY MORE</a>
+    </div>
+</div>
+
+<script>
+    const player = document.getElementById('player');
+    const container = document.getElementById('game-container');
+    const parkingSpot = document.getElementById('parking-spot');
+    const handHint = document.getElementById('hand-hint');
+    const successOverlay = document.getElementById('success-overlay');
+
+    let isDragging = false;
+    let startX, startY, initialLeft, initialTop;
+
+    // Normalize touch/mouse events
+    function getClientCoordinates(e) {
+        if (e.touches && e.touches.length > 0) {
+            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+        return { x: e.clientX, y: e.clientY };
+    }
+
+    function startDrag(e) {
+        e.preventDefault();
+        isDragging = true;
+        const coords = getClientCoordinates(e);
+        startX = coords.x;
+        startY = coords.y;
+
+        initialLeft = player.offsetLeft;
+        initialTop = player.offsetTop;
+
+        player.style.transition = 'none'; // Disable transition for direct control
+        handHint.style.display = 'none'; // Hide hint once user interacts
+    }
+
+    function onDrag(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+
+        const coords = getClientCoordinates(e);
+        const deltaX = coords.x - startX;
+        const deltaY = coords.y - startY;
+
+        let newLeft = initialLeft + deltaX;
+        let newTop = initialTop + deltaY;
+
+        // Boundaries
+        const maxLeft = container.offsetWidth - player.offsetWidth;
+        const maxTop = container.offsetHeight - player.offsetHeight;
+
+        if (newLeft < 0) newLeft = 0;
+        if (newTop < 0) newTop = 0;
+        if (newLeft > maxLeft) newLeft = maxLeft;
+        if (newTop > maxTop) newTop = maxTop;
+
+        player.style.left = newLeft + 'px';
+        player.style.top = newTop + 'px';
+
+        checkWinCondition();
+    }
+
+    function endDrag(e) {
+        isDragging = false;
+        player.style.transition = 'transform 0.1s';
+
+        // Snap back if not won? Or stay? Let's keep it simple.
+        if (!checkWinCondition()) {
+             // Optional: snap back logic or just leave it there
+        }
+    }
+
+    function checkWinCondition() {
+        const playerRect = player.getBoundingClientRect();
+        const spotRect = parkingSpot.getBoundingClientRect();
+
+        // Calculate overlap
+        const overlapX = Math.max(0, Math.min(playerRect.right, spotRect.right) - Math.max(playerRect.left, spotRect.left));
+        const overlapY = Math.max(0, Math.min(playerRect.bottom, spotRect.bottom) - Math.max(playerRect.top, spotRect.top));
+
+        const playerArea = playerRect.width * playerRect.height;
+        const overlapArea = overlapX * overlapY;
+
+        // If 70% of the car is inside the spot
+        if (overlapArea > (playerArea * 0.7)) {
+            winGame();
+            return true;
+        }
+        return false;
+    }
+
+    let gameWon = false;
+    function winGame() {
+        if (gameWon) return;
+        gameWon = true;
+        isDragging = false;
+
+        // Snap to center of spot
+        const spotRect = parkingSpot.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        // Center calculation relative to container
+        const centerX = (spotRect.left - containerRect.left) + (spotRect.width / 2) - (player.offsetWidth / 2);
+        const centerY = (spotRect.top - containerRect.top) + (spotRect.height / 2) - (player.offsetHeight / 2);
+
+        player.style.transition = 'all 0.5s ease-out';
+        player.style.left = centerX + 'px';
+        player.style.top = centerY + 'px';
+        player.style.transform = 'rotate(0deg)'; // Straighten up
+
+        setTimeout(() => {
+            successOverlay.style.display = 'flex';
+        }, 600);
+    }
+
+    player.addEventListener('mousedown', startDrag);
+    document.addEventListener('mousemove', onDrag);
+    document.addEventListener('mouseup', endDrag);
+
+    player.addEventListener('touchstart', startDrag, {passive: false});
+    document.addEventListener('touchmove', onDrag, {passive: false});
+    document.addEventListener('touchend', endDrag);
+
+</script>
+
+</body>
+</html>
