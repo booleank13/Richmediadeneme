@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Trendyol Yemek Playable Ad</title>
+    <style>
+        body {
+            margin: 0; padding: 0;
+            width: 100vw; height: 100vh;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden;
+        }
+
+        /* 320x480px Container */
+        #ad-container {
+            width: 320px;
+            height: 480px;
+            position: relative;
+            background: #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        /* Game Elements */
+        #game-layer {
+            width: 100%; height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+        }
+
+        #score-board {
+            position: absolute;
+            top: 20px; right: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            z-index: 10;
+            background: rgba(255,255,255,0.9);
+            padding: 8px 12px;
+            border-radius: 20px;
+            border: 2px solid #F27A1A;
+        }
+
+        .item {
+            position: absolute;
+            width: 40px; height: 40px;
+            font-size: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            will-change: top;
+        }
+
+        #catcher {
+            position: absolute;
+            bottom: 20px;
+            width: 100px; height: 80px;
+            font-size: 0; /* Hide default text if any */
+            display: flex;
+            justify-content: center;
+            align-items: flex-end; /* Align stacked items to bottom */
+            /* Center pivot */
+            transform: translateX(-50%);
+            left: 50%;
+            cursor: pointer;
+            z-index: 5;
+            background: no-repeat center bottom;
+            background-size: contain;
+        }
+
+        /* SVG Basket representation */
+        #basket-svg {
+            width: 100%; height: 100%;
+            position: absolute; bottom: 0; left: 0;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .stacked-item {
+            position: absolute;
+            font-size: 20px;
+            bottom: 10px;
+            animation: bounceIn 0.3s;
+            z-index: 1;
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0); }
+            60% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        /* Screens */
+        .screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 20;
+            background: rgba(0,0,0,0.85);
+        }
+        .screen.active { display: flex; }
+
+        .cta-btn {
+            margin-top: 20px;
+            padding: 15px 40px;
+            font-size: 20px;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            animation: pulse 1.5s infinite;
+        }
+
+        h1, h2 { color: white; margin: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        p { color: #eee; font-size: 18px; margin: 5px; }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Background Pattern */
+        .bg-pattern {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0.1;
+            z-index: 0;
+            background-image: radial-gradient(#F27A1A 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ad-container">
+        <!-- Background -->
+        <div id="bg-layer" class="bg-pattern"></div>
+
+        <!-- HUD -->
+        <div id="score-board">Sepet: 0/5</div>
+
+        <!-- Game Area -->
+        <div id="game-layer">
+            <div id="catcher">
+                <!-- Simple SVG Basket -->
+                <svg id="basket-svg" viewBox="0 0 100 80">
+                    <path d="M10 30 L20 75 Q22 80 30 80 L70 80 Q78 80 80 75 L90 30 Z" fill="#F27A1A" stroke="#d35400" stroke-width="2"/>
+                    <path d="M10 30 L90 30 L85 25 L15 25 Z" fill="#d35400" />
+                    <path d="M50 80 L50 30" stroke="#d35400" stroke-width="2" stroke-dasharray="4" opacity="0.5"/>
+                    <!-- Handle -->
+                    <path d="M20 30 Q50 -10 80 30" fill="none" stroke="#F27A1A" stroke-width="5"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Intro Screen -->
+        <div id="intro-screen" class="screen active">
+            <h1 id="brand-title">Trendyol Yemek</h1>
+            <p>Favori yemeklerini topla!</p>
+            <div style="font-size: 50px; margin: 20px; animation: pulse 1s infinite;">🛒</div>
+            <p>Başlamak için kaydır</p>
+        </div>
+
+        <!-- End Screen -->
+        <div id="end-screen" class="screen">
+            <h2 id="end-title">Tebrikler!</h2>
+            <p>Sepetin Doldu!</p>
+            <div style="font-size: 40px; margin: 10px;">🎉🍔🍟🍕🎉</div>
+            <button id="cta-btn" class="cta-btn" onclick="installApp()">İndirimi Kap</button>
+        </div>
+    </div>
+
+    <script>
+        // --- BRAND CONFIGURATION ---
+        const BRAND_CONFIG = {
+            name: "Trendyol Yemek",
+            primaryColor: "#F27A1A", // Trendyol Orange
+            secondaryColor: "#FFFFFF",
+            items: ["🍔", "🍕", "🥙", "🌮", "🍣", "🍟"],
+            badItems: ["🧱", "🪨"], // Falling rocks? Or just generic bad items
+            bgGradient: "linear-gradient(to bottom, #FFF0E0, #FFE4C4)",
+            winScore: 5
+        };
+
+        // --- Apply Config ---
+        document.getElementById('ad-container').style.background = BRAND_CONFIG.bgGradient;
+
+        const ctaBtn = document.getElementById('cta-btn');
+        ctaBtn.style.background = BRAND_CONFIG.primaryColor;
+        ctaBtn.style.color = BRAND_CONFIG.secondaryColor;
+        ctaBtn.style.boxShadow = "0 4px 0 #d35400";
+
+        // --- Game Logic ---
+        const container = document.getElementById('ad-container');
+        const catcher = document.getElementById('catcher');
+        const gameLayer = document.getElementById('game-layer');
+        const scoreEl = document.getElementById('score-board');
+        const introScreen = document.getElementById('intro-screen');
+        const endScreen = document.getElementById('end-screen');
+
+        let score = 0;
+        let isPlaying = false;
+        let catcherX = 160;
+        const containerWidth = 320;
+        const catcherWidth = 100;
+        let lastTime = 0;
+        let spawnTimer = 0;
+        const spawnRate = 800; // ms
+        let items = [];
+        const speed = 300; // px per second
+
+        // Input Handling
+        function handleMove(clientX) {
+            const rect = container.getBoundingClientRect();
+            let x = clientX - rect.left;
+
+            // Clamp
+            if (x < catcherWidth/2) x = catcherWidth/2;
+            if (x > containerWidth - catcherWidth/2) x = containerWidth - catcherWidth/2;
+
+            catcherX = x;
+            catcher.style.left = catcherX + 'px';
+
+            if (!isPlaying && introScreen.classList.contains('active')) {
+                startGame();
+            }
+        }
+
+        container.addEventListener('mousemove', (e) => {
+            if (introScreen.classList.contains('active') || isPlaying) handleMove(e.clientX);
+        });
+        container.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (introScreen.classList.contains('active') || isPlaying) handleMove(e.touches[0].clientX);
+        }, { passive: false });
+        container.addEventListener('touchstart', (e) => {
+             if (introScreen.classList.contains('active')) startGame();
+        });
+
+        function startGame() {
+            isPlaying = true;
+            score = 0;
+            scoreEl.innerText = "Sepet: " + score + "/" + BRAND_CONFIG.winScore;
+            introScreen.classList.remove('active');
+
+            // Clear previous stacked items if any
+            const stacked = catcher.querySelectorAll('.stacked-item');
+            stacked.forEach(el => el.remove());
+
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameLoop(timestamp) {
+            if (!isPlaying) return;
+            const dt = (timestamp - lastTime);
+            lastTime = timestamp;
+
+            update(dt);
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update(dt) {
+            // Spawn
+            spawnTimer += dt;
+            if (spawnTimer > spawnRate) {
+                spawnTimer = 0;
+                spawnItem();
+            }
+
+            // Move Items
+            for (let i = items.length - 1; i >= 0; i--) {
+                const item = items[i];
+                item.y += speed * (dt / 1000);
+                item.el.style.top = item.y + 'px';
+
+                // Check Catch
+                if (item.y > 380 && item.y < 440) {
+                    const itemCenter = parseInt(item.el.style.left) + 20;
+                    const catcherLeft = catcherX - catcherWidth/2;
+                    const catcherRight = catcherX + catcherWidth/2;
+
+                    if (itemCenter > catcherLeft && itemCenter < catcherRight) {
+                        collectItem(item, i);
+                        continue;
+                    }
+                }
+
+                // Missed
+                if (item.y > 480) {
+                    removeItem(i);
+                }
+            }
+        }
+
+        function spawnItem() {
+            // 80% chance of good item
+            const isGood = Math.random() > 0.2;
+            const content = isGood
+                ? BRAND_CONFIG.items[Math.floor(Math.random() * BRAND_CONFIG.items.length)]
+                : BRAND_CONFIG.badItems[Math.floor(Math.random() * BRAND_CONFIG.badItems.length)];
+
+            const el = document.createElement('div');
+            el.className = 'item';
+            el.innerText = content;
+
+            const x = Math.random() * (containerWidth - 40);
+            el.style.left = x + 'px';
+            el.style.top = '-40px';
+
+            gameLayer.appendChild(el);
+            items.push({ el, y: -40, isGood, content });
+        }
+
+        function collectItem(item, index) {
+            if (item.isGood) {
+                score++;
+
+                // Visual "Filling" - Stack item in basket
+                const stackEl = document.createElement('div');
+                stackEl.className = 'stacked-item';
+                stackEl.innerText = item.content;
+                // Randomize position slightly within basket
+                const offsetX = (Math.random() * 60) - 30; // -30 to 30
+                const offsetY = (Math.random() * 10) + 20 + (score * 5); // Stack upwards
+                stackEl.style.left = `calc(50% + ${offsetX}px)`;
+                stackEl.style.bottom = `${offsetY}px`;
+                catcher.appendChild(stackEl);
+
+            } else {
+                // Penalty? For now just visual shake or red flash
+                container.style.backgroundColor = "red";
+                setTimeout(() => container.style.background = BRAND_CONFIG.bgGradient, 100);
+            }
+
+            scoreEl.innerText = "Sepet: " + Math.min(score, BRAND_CONFIG.winScore) + "/" + BRAND_CONFIG.winScore;
+
+            // Remove falling item
+            items.splice(index, 1);
+            item.el.remove();
+
+            if (score >= BRAND_CONFIG.winScore) {
+                setTimeout(() => endGame(true), 500);
+            }
+        }
+
+        function removeItem(index) {
+            const item = items[index];
+            if (item.el.parentNode) item.el.remove();
+            items.splice(index, 1);
+        }
+
+        function endGame(win) {
+            isPlaying = false;
+            endScreen.classList.add('active');
+        }
+
+        function installApp() {
+            const targetUrl = "https://tgoyemek.com/restoranlar?ref=trendyol";
+            console.log("Opening: " + targetUrl);
+
+            if (window.mraid && window.mraid.open) {
+                window.mraid.open(targetUrl);
+            } else if (window.dapi && window.dapi.openStoreUrl) {
+                window.dapi.openStoreUrl(targetUrl); // Some adapters support URL param
+            } else {
+                window.open(targetUrl, "_blank");
+            }
+        }
+    </script>
+</body>
+</html>
