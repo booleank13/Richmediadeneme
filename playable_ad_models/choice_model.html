@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Choice Playable Ad</title>
+    <style>
+        body {
+            margin: 0; padding: 0; overflow: hidden;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #2c3e50;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-container {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-size: cover;
+            background-position: center;
+            transition: background-image 0.5s ease-in-out;
+        }
+
+        /* Character */
+        #character {
+            position: absolute;
+            bottom: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 350px;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 200"><rect x="30" y="50" width="40" height="80" fill="%23e74c3c"/><circle cx="50" cy="40" r="25" fill="%23f1c40f"/><rect x="35" y="130" width="10" height="60" fill="%2334495e"/><rect x="55" y="130" width="10" height="60" fill="%2334495e"/></svg>') no-repeat center bottom;
+            background-size: contain;
+            transition: transform 0.5s, bottom 0.5s;
+        }
+        #character.sad {
+            filter: grayscale(0.8);
+        }
+        #character.happy {
+            filter: brightness(1.2);
+            transform: translateX(-50%) scale(1.1);
+        }
+
+        /* Dialog / Prompt */
+        #dialog-box {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            width: 80%;
+            max-width: 400px;
+            text-align: center;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards 0.5s;
+        }
+        #dialog-box:after {
+            content: ''; position: absolute; bottom: -10px; left: 50%;
+            border-width: 10px 10px 0; border-style: solid; border-color: white transparent;
+            transform: translateX(-50%);
+        }
+        #dialog-text { font-size: 20px; color: #333; font-weight: bold; }
+
+        /* Choices */
+        #choices-container {
+            position: absolute;
+            bottom: 20%;
+            left: 0; width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            pointer-events: none; /* Block until active */
+        }
+        #choices-container.active { pointer-events: auto; }
+
+        .choice-btn {
+            background: white;
+            border: 4px solid #3498db;
+            border-radius: 50%;
+            width: 80px; height: 80px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 30px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transform: scale(0);
+            transition: transform 0.2s;
+        }
+        .choice-btn.show { transform: scale(1); }
+        .choice-btn:active { transform: scale(0.9); }
+
+        /* End Screen */
+        #end-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        #end-screen h1 { color: white; font-size: 2.5em; margin-bottom: 20px; text-align: center; }
+        .cta-btn {
+            background: #2ecc71;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.5em;
+            border-radius: 30px;
+            cursor: pointer;
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Animations */
+        @keyframes fadeIn { to { opacity: 1; } }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        /* Particles */
+        .particle {
+            position: absolute;
+            width: 10px; height: 10px;
+            background: gold;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: floatUp 1s ease-out forwards;
+        }
+        @keyframes floatUp {
+            to { transform: translateY(-100px); opacity: 0; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Background is set via CSS/JS -->
+
+        <div id="character" class="sad"></div>
+
+        <div id="dialog-box">
+            <div id="dialog-text">Oh no! My date is in 5 minutes!</div>
+        </div>
+
+        <div id="choices-container">
+            <div class="choice-btn" id="btn-bad" onclick="makeChoice(false)">🍕</div>
+            <div class="choice-btn" id="btn-good" onclick="makeChoice(true)">👗</div>
+        </div>
+
+        <div id="end-screen">
+            <h1 id="end-title">She looks great!</h1>
+            <button class="cta-btn" onclick="installApp()">CONTINUE</button>
+        </div>
+    </div>
+
+    <script>
+        const dialogText = document.getElementById('dialog-text');
+        const character = document.getElementById('character');
+        const choicesContainer = document.getElementById('choices-container');
+        const btnBad = document.getElementById('btn-bad');
+        const btnGood = document.getElementById('btn-good');
+        const endScreen = document.getElementById('end-screen');
+        const endTitle = document.getElementById('end-title');
+
+        // Initial State
+        setTimeout(() => {
+            dialogText.innerText = "What should I wear?";
+            showChoices();
+        }, 2000);
+
+        function showChoices() {
+            btnBad.classList.add('show');
+            setTimeout(() => btnGood.classList.add('show'), 200);
+            choicesContainer.classList.add('active');
+        }
+
+        function makeChoice(isGood) {
+            choicesContainer.classList.remove('active');
+            btnBad.classList.remove('show');
+            btnGood.classList.remove('show');
+
+            if (isGood) {
+                dialogText.innerText = "Perfect choice!";
+                character.classList.remove('sad');
+                character.classList.add('happy');
+                spawnConfetti();
+
+                setTimeout(() => {
+                    showEndScreen(true);
+                }, 2000);
+            } else {
+                dialogText.innerText = "Oh no... pizza stains!";
+                // Shake effect
+                character.style.transform = "translateX(-50%) rotate(5deg)";
+                setTimeout(() => character.style.transform = "translateX(-50%) rotate(-5deg)", 100);
+                setTimeout(() => character.style.transform = "translateX(-50%)", 200);
+
+                setTimeout(() => {
+                    showEndScreen(false);
+                }, 1500);
+            }
+        }
+
+        function showEndScreen(success) {
+            endScreen.style.display = 'flex';
+            if (success) {
+                endTitle.innerText = "Ready for the Date!";
+            } else {
+                endTitle.innerText = "Try Again!";
+            }
+        }
+
+        function spawnConfetti() {
+            const rect = character.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            for (let i = 0; i < 30; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.left = centerX + (Math.random() * 100 - 50) + 'px';
+                p.style.top = centerY + (Math.random() * 100 - 50) + 'px';
+                p.style.background = ['#e74c3c', '#f1c40f', '#3498db', '#2ecc71'][Math.floor(Math.random() * 4)];
+                document.body.appendChild(p);
+                setTimeout(() => p.remove(), 1000);
+            }
+        }
+
+        function installApp() {
+            // Standard Ad Network calls
+            if (window.mraid && window.mraid.open) {
+                window.mraid.open("https://apps.apple.com/app/id123456789");
+            } else if (window.dapi && window.dapi.openStoreUrl) {
+                window.dapi.openStoreUrl();
+            } else {
+                window.open("https://play.google.com/store/apps", "_blank");
+            }
+        }
+    </script>
+</body>
+</html>
