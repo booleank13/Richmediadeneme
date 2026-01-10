@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Brandable Sorting Ad</title>
+    <style>
+        body {
+            margin: 0; padding: 0;
+            width: 100vw; height: 100vh;
+            background-color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: sans-serif;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #ad-container {
+            width: 320px;
+            height: 480px;
+            position: relative;
+            background: #fff;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
+
+        /* Targets */
+        .target-zone {
+            position: absolute;
+            bottom: 20px;
+            width: 100px; height: 100px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 40px;
+            border: 4px dashed #ccc;
+            background: rgba(255,255,255,0.9);
+            transition: transform 0.2s;
+        }
+        .target-zone.active { transform: scale(1.1); border-style: solid; }
+
+        #target-left { left: 20px; }
+        #target-right { right: 20px; }
+
+        .target-label {
+            position: absolute;
+            bottom: -30px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #555;
+            width: 120%;
+            text-align: center;
+        }
+
+        /* Item to Sort */
+        #item-card {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 120px; height: 120px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            transform: translate(-50%, -50%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 60px;
+            cursor: grab;
+            z-index: 10;
+        }
+        #item-card:active { cursor: grabbing; }
+
+        /* UI */
+        #header {
+            position: absolute;
+            top: 40px; width: 100%;
+            text-align: center;
+            font-size: 22px;
+            color: #333;
+            font-weight: bold;
+        }
+        #progress-bar {
+            position: absolute;
+            top: 0; left: 0; height: 10px;
+            background: #4cd137;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* End Screen */
+        #end-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.95);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            text-align: center;
+            padding: 20px; box-sizing: border-box;
+        }
+        #end-screen.active { display: flex; animation: fadeIn 0.5s; }
+
+        .cta-btn {
+            background: #00a8ff;
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            font-size: 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #0097e6;
+        }
+        .cta-btn:active { transform: translateY(4px); box-shadow: none; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .feedback {
+            position: absolute;
+            top: 40%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 80px;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 15;
+        }
+        .feedback.show { animation: popFade 0.8s; }
+
+        @keyframes popFade {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="ad-container">
+        <div id="progress-bar"></div>
+        <h1 id="header">Sort the Items!</h1>
+
+        <!-- Targets -->
+        <div id="target-left" class="target-zone">
+            <span id="icon-left">🗑️</span>
+            <div id="label-left" class="target-label">Trash</div>
+        </div>
+        <div id="target-right" class="target-zone">
+            <span id="icon-right">♻️</span>
+            <div id="label-right" class="target-label">Recycle</div>
+        </div>
+
+        <!-- Draggable Card -->
+        <div id="item-card">?</div>
+
+        <!-- Feedback Emojis -->
+        <div id="feedback-ok" class="feedback">✅</div>
+        <div id="feedback-fail" class="feedback">❌</div>
+
+        <!-- End Screen -->
+        <div id="end-screen">
+            <h1 id="end-title">Good Job!</h1>
+            <p>You helped save the planet!</p>
+            <button class="cta-btn" onclick="installApp()">INSTALL NOW</button>
+        </div>
+    </div>
+
+    <script>
+        // --- BRAND CONFIGURATION ---
+        const BRAND_CONFIG = {
+            title: "Recycle Hero",
+            ctaText: "PLAY FULL GAME",
+            leftCategory: {
+                label: "Trash",
+                icon: "🗑️",
+                color: "#e74c3c",
+                items: ["🥡", "🦴", "🥤"] // Items belonging to left
+            },
+            rightCategory: {
+                label: "Recycle",
+                icon: "♻️",
+                color: "#2ecc71",
+                items: ["📰", "🍾", "📦"] // Items belonging to right
+            },
+            itemsToWin: 5
+        };
+
+        // --- Setup ---
+        document.getElementById('header').innerText = BRAND_CONFIG.title;
+        document.getElementById('label-left').innerText = BRAND_CONFIG.leftCategory.label;
+        document.getElementById('icon-left').innerText = BRAND_CONFIG.leftCategory.icon;
+        document.getElementById('label-right').innerText = BRAND_CONFIG.rightCategory.label;
+        document.getElementById('icon-right').innerText = BRAND_CONFIG.rightCategory.icon;
+        document.querySelector('.cta-btn').innerText = BRAND_CONFIG.ctaText;
+
+        const card = document.getElementById('item-card');
+        const container = document.getElementById('ad-container');
+        const targetLeft = document.getElementById('target-left');
+        const targetRight = document.getElementById('target-right');
+        const progressBar = document.getElementById('progress-bar');
+
+        let currentItem = null;
+        let score = 0;
+        let startX, startY, currentX, currentY;
+        let isDragging = false;
+
+        // Combine items
+        let queue = [];
+
+        function fillQueue() {
+            for(let i=0; i<10; i++) {
+                const isRight = Math.random() > 0.5;
+                const cat = isRight ? BRAND_CONFIG.rightCategory : BRAND_CONFIG.leftCategory;
+                const item = cat.items[Math.floor(Math.random() * cat.items.length)];
+                queue.push({ content: item, target: isRight ? 'right' : 'left' });
+            }
+        }
+        fillQueue();
+
+        function nextCard() {
+            if (score >= BRAND_CONFIG.itemsToWin) {
+                endGame();
+                return;
+            }
+            if (queue.length === 0) fillQueue();
+
+            currentItem = queue.shift();
+            card.innerText = currentItem.content;
+
+            // Reset Position
+            card.style.transform = `translate(-50%, -50%)`;
+            card.style.transition = 'transform 0.3s';
+            card.style.left = '50%';
+            card.style.top = '50%';
+
+            // Update Progress
+            progressBar.style.width = (score / BRAND_CONFIG.itemsToWin * 100) + '%';
+        }
+
+        nextCard();
+
+        // --- Drag Logic ---
+        card.addEventListener('mousedown', startDrag);
+        card.addEventListener('touchstart', (e) => startDrag(e.touches[0]), {passive: false});
+
+        function startDrag(e) {
+            isDragging = true;
+            card.style.transition = 'none'; // Remove transition for instant follow
+            startX = e.clientX;
+            startY = e.clientY;
+
+            document.addEventListener('mousemove', onDrag);
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchmove', (e) => { e.preventDefault(); onDrag(e.touches[0]); }, {passive: false});
+            document.addEventListener('touchend', endDrag);
+        }
+
+        function onDrag(e) {
+            if (!isDragging) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+
+            card.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) rotate(${dx * 0.1}deg)`;
+
+            // Highlight targets
+            if (dx < -50) {
+                targetLeft.classList.add('active');
+                targetRight.classList.remove('active');
+            } else if (dx > 50) {
+                targetRight.classList.add('active');
+                targetLeft.classList.remove('active');
+            } else {
+                targetLeft.classList.remove('active');
+                targetRight.classList.remove('active');
+            }
+        }
+
+        function endDrag() {
+            isDragging = false;
+            document.removeEventListener('mousemove', onDrag);
+            document.removeEventListener('mouseup', endDrag);
+
+            const rect = card.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            const centerX = rect.left + rect.width/2 - containerRect.left;
+
+            targetLeft.classList.remove('active');
+            targetRight.classList.remove('active');
+
+            // Thresholds
+            if (centerX < 100) {
+                checkChoice('left');
+            } else if (centerX > 220) {
+                checkChoice('right');
+            } else {
+                // Return to center
+                card.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                card.style.transform = `translate(-50%, -50%)`;
+            }
+        }
+
+        function checkChoice(side) {
+            if (side === currentItem.target) {
+                // Correct
+                score++;
+                showFeedback(true);
+                // Animate away
+                const endX = side === 'left' ? -200 : 200;
+                card.style.transition = 'transform 0.3s';
+                card.style.transform = `translate(calc(-50% + ${endX}px), -50%)`;
+                setTimeout(nextCard, 300);
+            } else {
+                // Wrong
+                showFeedback(false);
+                // Shake and return
+                card.style.transition = 'transform 0.1s';
+                card.style.transform = `translate(-50%, -50%) rotate(10deg)`;
+                setTimeout(() => {
+                     card.style.transform = `translate(-50%, -50%) rotate(-10deg)`;
+                     setTimeout(() => {
+                         card.style.transition = 'transform 0.2s';
+                         card.style.transform = `translate(-50%, -50%)`;
+                     }, 100);
+                }, 100);
+            }
+        }
+
+        function showFeedback(isGood) {
+            const el = document.getElementById(isGood ? 'feedback-ok' : 'feedback-fail');
+            el.classList.remove('show');
+            void el.offsetWidth; // trigger reflow
+            el.classList.add('show');
+        }
+
+        function endGame() {
+            document.getElementById('end-screen').classList.add('active');
+            progressBar.style.width = '100%';
+        }
+
+        function installApp() {
+            // Standard Ad Network calls
+            if (window.mraid && window.mraid.open) {
+                window.mraid.open("https://apps.apple.com/app/id123456789");
+            } else if (window.dapi && window.dapi.openStoreUrl) {
+                window.dapi.openStoreUrl();
+            } else {
+                window.open("https://play.google.com/store/apps", "_blank");
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Brandable Catching Ad</title>
+    <style>
+        body {
+            margin: 0; padding: 0;
+            width: 100vw; height: 100vh;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden;
+        }
+
+        /* 320x480px Container */
+        #ad-container {
+            width: 320px;
+            height: 480px;
+            position: relative;
+            background: #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        /* Game Elements */
+        #game-layer {
+            width: 100%; height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+        }
+
+        #score-board {
+            position: absolute;
+            top: 20px; left: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            z-index: 10;
+            background: rgba(255,255,255,0.8);
+            padding: 5px 10px;
+            border-radius: 10px;
+        }
+
+        .item {
+            position: absolute;
+            width: 40px; height: 40px;
+            font-size: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            will-change: top;
+        }
+
+        #catcher {
+            position: absolute;
+            bottom: 20px;
+            width: 80px; height: 80px;
+            font-size: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* Center pivot for transform if needed */
+            transform: translateX(-50%);
+            left: 50%; /* Start center */
+            cursor: pointer;
+            z-index: 5;
+        }
+
+        /* Screens */
+        .screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 20;
+            background: rgba(0,0,0,0.7);
+        }
+        .screen.active { display: flex; }
+
+        .cta-btn {
+            margin-top: 20px;
+            padding: 15px 40px;
+            font-size: 20px;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            animation: pulse 1.5s infinite;
+        }
+
+        h1, h2, p { color: white; margin: 10px; }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Background Pattern (Optional) */
+        .bg-pattern {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0.1;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ad-container">
+        <!-- Background -->
+        <div id="bg-layer" class="bg-pattern"></div>
+
+        <!-- HUD -->
+        <div id="score-board">0</div>
+
+        <!-- Game Area -->
+        <div id="game-layer">
+            <div id="catcher">🛒</div>
+        </div>
+
+        <!-- Intro Screen -->
+        <div id="intro-screen" class="screen active">
+            <h1 id="brand-title">Brand Name</h1>
+            <p>Catch the products!</p>
+            <div style="font-size: 40px; margin: 20px;">👇</div>
+            <p>Slide to Move</p>
+        </div>
+
+        <!-- End Screen -->
+        <div id="end-screen" class="screen">
+            <h2 id="end-title">Well Done!</h2>
+            <p id="end-score">Score: 0</p>
+            <button id="cta-btn" class="cta-btn" onclick="installApp()">SHOP NOW</button>
+        </div>
+    </div>
+
+    <script>
+        // --- BRAND CONFIGURATION ---
+        // Edit this object to adapt the ad for a different brand
+        const BRAND_CONFIG = {
+            name: "SuperMarket",
+            primaryColor: "#E74C3C", // Red
+            secondaryColor: "#F1C40F", // Yellow
+            catcherIcon: "🛒", // Emoji or Image URL
+            goodItems: ["🍎", "🍞", "🥛", "🧀"], // Points
+            badItems: ["🕷️", "🦠"], // Game Over or Minus Points
+            bgGradient: "linear-gradient(to bottom, #74ebd5, #ACB6E5)",
+            winScore: 10
+        };
+
+        // --- Apply Config ---
+        document.getElementById('brand-title').innerText = BRAND_CONFIG.name;
+        document.getElementById('ad-container').style.background = BRAND_CONFIG.bgGradient;
+        document.getElementById('catcher').innerText = BRAND_CONFIG.catcherIcon;
+        const ctaBtn = document.getElementById('cta-btn');
+        ctaBtn.style.background = BRAND_CONFIG.primaryColor;
+        ctaBtn.style.color = "white";
+        ctaBtn.style.boxShadow = `0 4px 0 ${BRAND_CONFIG.secondaryColor}`;
+
+        // --- Game Logic ---
+        const container = document.getElementById('ad-container');
+        const catcher = document.getElementById('catcher');
+        const gameLayer = document.getElementById('game-layer');
+        const scoreEl = document.getElementById('score-board');
+        const introScreen = document.getElementById('intro-screen');
+        const endScreen = document.getElementById('end-screen');
+
+        let score = 0;
+        let isPlaying = false;
+        let catcherX = 160; // Center of 320
+        const containerWidth = 320;
+        const catcherWidth = 80;
+        let animationFrame;
+        let lastTime = 0;
+        let spawnTimer = 0;
+        const spawnRate = 800; // ms
+        let items = [];
+        const speed = 250; // px per second
+
+        // Input Handling (Mouse & Touch)
+        function handleMove(clientX) {
+            const rect = container.getBoundingClientRect();
+            let x = clientX - rect.left;
+
+            // Clamp
+            if (x < catcherWidth/2) x = catcherWidth/2;
+            if (x > containerWidth - catcherWidth/2) x = containerWidth - catcherWidth/2;
+
+            catcherX = x;
+            catcher.style.left = catcherX + 'px';
+
+            if (!isPlaying && introScreen.classList.contains('active')) {
+                startGame();
+            }
+        }
+
+        container.addEventListener('mousemove', (e) => {
+            if (introScreen.classList.contains('active') || isPlaying) handleMove(e.clientX);
+        });
+        container.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Prevent scroll
+            if (introScreen.classList.contains('active') || isPlaying) handleMove(e.touches[0].clientX);
+        }, { passive: false });
+        container.addEventListener('touchstart', (e) => {
+             if (introScreen.classList.contains('active')) startGame();
+        });
+
+
+        function startGame() {
+            isPlaying = true;
+            score = 0;
+            scoreEl.innerText = score;
+            introScreen.classList.remove('active');
+
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameLoop(timestamp) {
+            if (!isPlaying) return;
+            const dt = (timestamp - lastTime);
+            lastTime = timestamp;
+
+            update(dt);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update(dt) {
+            // Spawn
+            spawnTimer += dt;
+            if (spawnTimer > spawnRate) {
+                spawnTimer = 0;
+                spawnItem();
+            }
+
+            // Move Items
+            for (let i = items.length - 1; i >= 0; i--) {
+                const item = items[i];
+                item.y += speed * (dt / 1000);
+                item.el.style.top = item.y + 'px';
+
+                // Check Catch
+                if (item.y > 400 && item.y < 460) { // Catcher height area
+                    const itemCenter = parseInt(item.el.style.left) + 20;
+                    const catcherLeft = catcherX - 40;
+                    const catcherRight = catcherX + 40;
+
+                    if (itemCenter > catcherLeft && itemCenter < catcherRight) {
+                        // Caught
+                        collectItem(item, i);
+                        continue;
+                    }
+                }
+
+                // Missed (bottom)
+                if (item.y > 480) {
+                    removeItem(i);
+                }
+            }
+        }
+
+        function spawnItem() {
+            const isGood = Math.random() > 0.3; // 70% good items
+            const content = isGood
+                ? BRAND_CONFIG.goodItems[Math.floor(Math.random() * BRAND_CONFIG.goodItems.length)]
+                : BRAND_CONFIG.badItems[Math.floor(Math.random() * BRAND_CONFIG.badItems.length)];
+
+            const el = document.createElement('div');
+            el.className = 'item';
+            el.innerText = content;
+
+            const x = Math.random() * (containerWidth - 40);
+            el.style.left = x + 'px';
+            el.style.top = '-40px';
+
+            gameLayer.appendChild(el);
+
+            items.push({ el, y: -40, isGood });
+        }
+
+        function collectItem(item, index) {
+            // Visual feedback
+            item.el.style.transform = "scale(1.5)";
+            item.el.style.opacity = "0";
+
+            // Logic
+            if (item.isGood) {
+                score++;
+            } else {
+                score = Math.max(0, score - 2);
+                container.style.backgroundColor = "red";
+                setTimeout(() => container.style.background = BRAND_CONFIG.bgGradient, 100);
+            }
+            scoreEl.innerText = score;
+
+            // Remove from array immediately
+            items.splice(index, 1);
+            // Remove from DOM after transition
+            setTimeout(() => item.el.remove(), 200);
+
+            // Win Condition
+            if (score >= BRAND_CONFIG.winScore) {
+                endGame(true);
+            }
+        }
+
+        function removeItem(index) {
+            const item = items[index];
+            if (item.el.parentNode) item.el.remove();
+            items.splice(index, 1);
+        }
+
+        function endGame(win) {
+            isPlaying = false;
+            endScreen.classList.add('active');
+            document.getElementById('end-score').innerText = "Final Score: " + score;
+        }
+
+        function installApp() {
+            // Standard Ad Network calls
+            if (window.mraid && window.mraid.open) {
+                window.mraid.open("https://apps.apple.com/app/id123456789");
+            } else if (window.dapi && window.dapi.openStoreUrl) {
+                window.dapi.openStoreUrl();
+            } else {
+                window.open("https://play.google.com/store/apps", "_blank");
+            }
+        }
+    </script>
+</body>
+</html>
